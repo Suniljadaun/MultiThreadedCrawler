@@ -18,6 +18,8 @@ venv/
 !.env.example
 *.pem
 *.key
+data.txt
+SYSTEM_PROMPT.md
 
 
 
