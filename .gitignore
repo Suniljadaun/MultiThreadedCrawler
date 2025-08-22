@@ -18,7 +18,7 @@ venv/
 !.env.example
 *.pem
 *.key
-*.txt
+
 
 
 
