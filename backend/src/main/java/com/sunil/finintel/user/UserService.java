@@ -36,6 +36,27 @@ public class UserService {
         }
     }
 
+    @Transactional
+    public UserResponse update(Long id, UpdateUserRequest request) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("user " + id + " not found"));
+
+        String name = request.name() != null ? request.name().trim() : user.getName();
+        String email = request.email() != null ? request.email().trim().toLowerCase() : user.getEmail();
+
+        // Only check uniqueness if the email is actually changing
+        if (!email.equals(user.getEmail()) && userRepository.existsByEmail(email)) {
+            throw new ConflictException("email already registered");
+        }
+
+        user.update(name, email);
+        try {
+            return UserResponse.from(userRepository.saveAndFlush(user));
+        } catch (DataIntegrityViolationException e) {
+            throw new ConflictException("email already registered");
+        }
+    }
+
     @Transactional(readOnly = true)
     public UserResponse get(Long id) {
         return userRepository.findById(id)

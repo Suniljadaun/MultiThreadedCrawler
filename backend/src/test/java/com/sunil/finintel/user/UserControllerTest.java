@@ -1,8 +1,10 @@
 package com.sunil.finintel.user;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -82,6 +84,27 @@ class UserControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error").value("NOT_FOUND"))
                 .andExpect(jsonPath("$.message").value("user 99 not found"));
+    }
+
+    @Test
+    void patchUpdatesUser() throws Exception {
+        when(userService.update(eq(1L), any()))
+                .thenReturn(new UserResponse(1L, "Sunil J", "sunil@example.com", NOW, NOW));
+
+        mockMvc.perform(patch("/api/v1/users/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Sunil J\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Sunil J"));
+    }
+
+    @Test
+    void patchWithBlankNameReturns400() throws Exception {
+        mockMvc.perform(patch("/api/v1/users/1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"   \"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("VALIDATION_ERROR"));
     }
 
     @Test
