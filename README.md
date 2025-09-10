@@ -15,8 +15,8 @@ This repository began as a small multithreaded web-crawler experiment (see the e
 
 | Phase | Scope | Status |
 |---|---|---|
-| 0 | Architecture & specification | IN PROGRESS |
-| 1 | Spring Boot core + PostgreSQL | NOT STARTED |
+| 0 | Architecture & specification | DONE |
+| 1 | Spring Boot core + PostgreSQL | IN PROGRESS (users API done) |
 | 2 | Transactions & idempotency | NOT STARTED |
 | 3 | Kafka events | NOT STARTED |
 | 4 | Portfolio | NOT STARTED |
@@ -26,7 +26,18 @@ This repository began as a small multithreaded web-crawler experiment (see the e
 | 8 | Performance | NOT STARTED |
 | 9 | CI/CD & final docs | NOT STARTED |
 
-Nothing is runnable yet. Setup instructions will be added once they have been tested.
+## Run locally
+
+Requires JDK 21, Maven and Docker Desktop.
+
+```bash
+docker compose up -d          # start PostgreSQL
+cd backend
+mvn test                      # run tests
+mvn spring-boot:run           # start API on http://localhost:8080
+```
+
+Available so far: `GET /api/v1/health`, `POST /api/v1/users`, `GET /api/v1/users/{id}`, `PATCH /api/v1/users/{id}`.
 
 ## Planned tech stack
 
