@@ -65,6 +65,39 @@ class UserServiceTest {
     }
 
     @Test
+    void updateChangesOnlyGivenFields() {
+        User existing = new User("Sunil", "sunil@example.com");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(userRepository.saveAndFlush(existing)).thenReturn(existing);
+
+        UserResponse result = userService.update(1L, new UpdateUserRequest("Sunil J", null));
+
+        assertThat(result.name()).isEqualTo("Sunil J");
+        assertThat(result.email()).isEqualTo("sunil@example.com");
+        // Email did not change, so no uniqueness lookup is needed
+        verify(userRepository, never()).existsByEmail(any());
+    }
+
+    @Test
+    void updateRejectsEmailTakenByAnotherUser() {
+        User existing = new User("Sunil", "sunil@example.com");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(userRepository.existsByEmail("taken@example.com")).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.update(1L, new UpdateUserRequest(null, "Taken@Example.com")))
+                .isInstanceOf(ConflictException.class);
+        verify(userRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void updateThrowsWhenUserMissing() {
+        when(userRepository.findById(7L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.update(7L, new UpdateUserRequest("X", null)))
+                .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
     void getThrowsWhenMissing() {
         when(userRepository.findById(42L)).thenReturn(Optional.empty());
 
