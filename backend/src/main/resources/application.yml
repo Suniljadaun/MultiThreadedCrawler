@@ -3,7 +3,7 @@ spring:
     name: finintel-backend
 
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:finintel}
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5433}/${POSTGRES_DB:finintel}
     username: ${POSTGRES_USER:finintel}
     password: ${POSTGRES_PASSWORD:finintel}
 
