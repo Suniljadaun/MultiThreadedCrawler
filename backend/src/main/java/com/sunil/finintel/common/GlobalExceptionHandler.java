@@ -7,7 +7,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -40,6 +42,16 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", e.getName() + " has an invalid value", req);
     }
 
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    ResponseEntity<ApiError> handleMissingHeader(MissingRequestHeaderException e, HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", e.getHeaderName() + " header is required", req);
+    }
+
+    @ExceptionHandler(BadRequestException.class)
+    ResponseEntity<ApiError> handleBadRequest(BadRequestException e, HttpServletRequest req) {
+        return build(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", e.getMessage(), req);
+    }
+
     @ExceptionHandler(NotFoundException.class)
     ResponseEntity<ApiError> handleNotFound(NotFoundException e, HttpServletRequest req) {
         return build(HttpStatus.NOT_FOUND, "NOT_FOUND", e.getMessage(), req);
@@ -50,9 +62,19 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.CONFLICT, "CONFLICT", e.getMessage(), req);
     }
 
-    // Anything unexpected: log the details, return a generic message (no internals leaked)
+    @ExceptionHandler(UnprocessableException.class)
+    ResponseEntity<ApiError> handleUnprocessable(UnprocessableException e, HttpServletRequest req) {
+        return build(HttpStatus.valueOf(422), "UNPROCESSABLE", e.getMessage(), req);
+    }
+
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiError> handleUnexpected(Exception e, HttpServletRequest req) {
+        // Spring's own web errors (unknown path 404, wrong method 405, ...) keep their status
+        if (e instanceof ErrorResponse errorResponse) {
+            HttpStatus status = HttpStatus.valueOf(errorResponse.getStatusCode().value());
+            return build(status, status.name(), status.getReasonPhrase(), req);
+        }
+        // Anything else: log the details, return a generic message (no internals leaked)
         log.error("Unhandled error on {} {}", req.getMethod(), req.getRequestURI(), e);
         return build(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_ERROR", "unexpected error", req);
     }
