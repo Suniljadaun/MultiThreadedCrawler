@@ -42,6 +42,12 @@ public class OrderController {
         return orderService.get(id);
     }
 
+    // 200 with the cancelled order; 409 if it is already EXECUTED or REJECTED
+    @PostMapping("/orders/{id}/cancel")
+    public OrderResponse cancel(@PathVariable Long id) {
+        return orderService.cancel(id);
+    }
+
     @GetMapping("/users/{userId}/orders")
     public PageResponse<OrderResponse> listForUser(@PathVariable Long userId,
                                                    @RequestParam(defaultValue = "0") int page,

@@ -20,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.sunil.finintel.common.ConflictException;
 import com.sunil.finintel.common.NotFoundException;
 import com.sunil.finintel.common.PageResponse;
 import com.sunil.finintel.common.UnprocessableException;
@@ -128,5 +129,25 @@ class OrderControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].id").value(7))
                 .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    @Test
+    void cancelReturns200() throws Exception {
+        OrderResponse cancelled = new OrderResponse(7L, 1L, "ACME", OrderSide.BUY, 10, new BigDecimal("101.5000"),
+                OrderStatus.CANCELLED, NOW, NOW);
+        when(orderService.cancel(7L)).thenReturn(cancelled);
+
+        mockMvc.perform(post("/api/v1/orders/7/cancel"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("CANCELLED"));
+    }
+
+    @Test
+    void cancelExecutedOrderReturns409() throws Exception {
+        when(orderService.cancel(7L)).thenThrow(new ConflictException("order 7 is EXECUTED and cannot be cancelled"));
+
+        mockMvc.perform(post("/api/v1/orders/7/cancel"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("CONFLICT"));
     }
 }

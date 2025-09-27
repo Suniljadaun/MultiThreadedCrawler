@@ -24,6 +24,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import com.sunil.finintel.common.BadRequestException;
+import com.sunil.finintel.common.ConflictException;
 import com.sunil.finintel.common.NotFoundException;
 import com.sunil.finintel.common.UnprocessableException;
 import com.sunil.finintel.user.UserRepository;
@@ -137,5 +138,48 @@ class OrderServiceTest {
         verify(orderRepository).findByUserId(eq(1L), pageable.capture());
         assertThat(pageable.getValue().getPageNumber()).isZero();
         assertThat(pageable.getValue().getPageSize()).isEqualTo(OrderService.MAX_PAGE_SIZE);
+    }
+
+    @Test
+    void cancelMovesCreatedOrderToCancelled() {
+        Order order = storedOrder(request);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+        when(orderRepository.saveAndFlush(order)).thenReturn(order);
+
+        OrderResponse result = orderService.cancel(1L);
+
+        assertThat(result.status()).isEqualTo(OrderStatus.CANCELLED);
+    }
+
+    @Test
+    void cancelTwiceIsHarmless() {
+        Order order = storedOrder(request);
+        order.moveTo(OrderStatus.CANCELLED);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        OrderResponse result = orderService.cancel(1L);
+
+        assertThat(result.status()).isEqualTo(OrderStatus.CANCELLED);
+        verify(orderRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void cancelExecutedOrderIsRejected() {
+        Order order = storedOrder(request);
+        order.moveTo(OrderStatus.VALIDATED);
+        order.moveTo(OrderStatus.EXECUTED);
+        when(orderRepository.findById(1L)).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> orderService.cancel(1L))
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("EXECUTED");
+        verify(orderRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void cancelUnknownOrderThrows() {
+        when(orderRepository.findById(9L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> orderService.cancel(9L)).isInstanceOf(NotFoundException.class);
     }
 }

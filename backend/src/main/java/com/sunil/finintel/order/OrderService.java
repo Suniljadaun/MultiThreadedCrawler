@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.sunil.finintel.common.BadRequestException;
+import com.sunil.finintel.common.ConflictException;
 import com.sunil.finintel.common.NotFoundException;
 import com.sunil.finintel.common.PageResponse;
 import com.sunil.finintel.common.RequestHasher;
@@ -58,6 +59,23 @@ public class OrderService {
                     .orElseThrow(() -> e);
             return replay(winner, hash);
         }
+    }
+
+    // Cancelling twice is harmless: an already-cancelled order is returned as-is.
+    // A concurrent status change is caught by @Version and surfaces as HTTP 409.
+    @Transactional
+    public OrderResponse cancel(Long id) {
+        Order order = orderRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("order " + id + " not found"));
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            return OrderResponse.from(order);
+        }
+        if (!order.getStatus().canMoveTo(OrderStatus.CANCELLED)) {
+            throw new ConflictException("order " + id + " is " + order.getStatus() + " and cannot be cancelled");
+        }
+        order.moveTo(OrderStatus.CANCELLED);
+        // Flush now so updated_at in the response is the stored value
+        return OrderResponse.from(orderRepository.saveAndFlush(order));
     }
 
     @Transactional(readOnly = true)

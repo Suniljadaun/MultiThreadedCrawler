@@ -4,6 +4,7 @@ import java.time.Instant;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -60,6 +61,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConflictException.class)
     ResponseEntity<ApiError> handleConflict(ConflictException e, HttpServletRequest req) {
         return build(HttpStatus.CONFLICT, "CONFLICT", e.getMessage(), req);
+    }
+
+    // Two requests changed the same row at the same time (@Version mismatch); the client can retry
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    ResponseEntity<ApiError> handleOptimisticLock(OptimisticLockingFailureException e, HttpServletRequest req) {
+        return build(HttpStatus.CONFLICT, "CONFLICT", "resource was modified concurrently, please retry", req);
     }
 
     @ExceptionHandler(UnprocessableException.class)
