@@ -9,4 +9,7 @@
 | A-005 | Supported symbols are a fixed list in config | avoids external symbol lookup | Accepted |
 | A-006 | No authentication in the first MVP | plan says avoid auth complexity early | Accepted |
 | A-007 | Per-user event ordering is enough (no global order) | portfolio state is per user | Accepted |
-| A-008 | Build targets Java 21; developer machine has JDK 24 | plan asks for an LTS target | Open: install JDK 21 |
+| A-008 | Build targets Java 21 (Temurin 21 installed) | plan asks for an LTS target | Accepted |
+| A-009 | Idempotency keys are scoped per user and kept forever | simple and safe for a learning project; no expiry job yet | Accepted |
+| A-010 | Order list page size is clamped to 1-100 instead of rejected | friendlier for clients, protects the DB | Accepted |
+| A-011 | Cancelling an already-cancelled order returns 200 | cancel is safe to retry | Accepted |

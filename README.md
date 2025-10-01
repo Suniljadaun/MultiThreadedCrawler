@@ -16,8 +16,8 @@ This repository began as a small multithreaded web-crawler experiment (see the e
 | Phase | Scope | Status |
 |---|---|---|
 | 0 | Architecture & specification | DONE |
-| 1 | Spring Boot core + PostgreSQL | IN PROGRESS (users API done) |
-| 2 | Transactions & idempotency | NOT STARTED |
+| 1 | Spring Boot core + PostgreSQL | DONE |
+| 2 | Transactions & idempotency | DONE |
 | 3 | Kafka events | NOT STARTED |
 | 4 | Portfolio | NOT STARTED |
 | 5 | Redis caching | NOT STARTED |
@@ -33,11 +33,12 @@ Requires JDK 21, Maven and Docker Desktop.
 ```bash
 docker compose up -d          # start PostgreSQL
 cd backend
-mvn test                      # run tests
+mvn test                      # unit + web tests
+mvn verify                    # + integration tests on real PostgreSQL (needs Docker)
 mvn spring-boot:run           # start API on http://localhost:8080
 ```
 
-Available so far: `GET /api/v1/health`, `POST /api/v1/users`, `GET /api/v1/users/{id}`, `PATCH /api/v1/users/{id}`.
+PostgreSQL is exposed on host port 5433. Endpoints are listed in [docs/api.md](docs/api.md).
 
 ## Planned tech stack
 
