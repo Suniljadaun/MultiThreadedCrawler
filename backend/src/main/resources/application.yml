@@ -16,5 +16,29 @@ spring:
   flyway:
     locations: classpath:db/migration
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+        # Fail fast instead of blocking 60s when Kafka is down; the outbox retries later
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
+    consumer:
+      auto-offset-reset: earliest
+
 server:
   port: ${SERVER_PORT:8080}
+
+app:
+  orders:
+    # Synthetic symbols only (see A-005)
+    supported-symbols: ACME,GLOBEX,INITECH,UMBRELLA,STARK
+  outbox:
+    publisher:
+      enabled: true
+      interval-ms: 500
+      batch-size: 100
+      send-timeout-ms: 10000

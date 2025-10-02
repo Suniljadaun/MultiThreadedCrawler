@@ -20,5 +20,13 @@ services:
       timeout: 3s
       retries: 10
 
+  kafka:
+    # Single broker in KRaft mode (no ZooKeeper). The image's default config
+    # listens on localhost:9092, which is what the app expects.
+    image: apache/kafka:4.0.0
+    container_name: finintel-kafka
+    ports:
+      - "9092:9092"
+
 volumes:
   pgdata:
