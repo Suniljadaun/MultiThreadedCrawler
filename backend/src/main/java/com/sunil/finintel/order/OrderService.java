@@ -9,6 +9,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.sunil.finintel.common.BadRequestException;
 import com.sunil.finintel.common.ConflictException;
@@ -16,6 +17,8 @@ import com.sunil.finintel.common.NotFoundException;
 import com.sunil.finintel.common.PageResponse;
 import com.sunil.finintel.common.RequestHasher;
 import com.sunil.finintel.common.UnprocessableException;
+import com.sunil.finintel.messaging.OutboxWriter;
+import com.sunil.finintel.messaging.Topics;
 import com.sunil.finintel.user.UserRepository;
 
 @Service
@@ -26,14 +29,19 @@ public class OrderService {
 
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
+    private final OutboxWriter outboxWriter;
+    private final TransactionTemplate transactionTemplate;
 
-    public OrderService(OrderRepository orderRepository, UserRepository userRepository) {
+    public OrderService(OrderRepository orderRepository, UserRepository userRepository,
+                        OutboxWriter outboxWriter, TransactionTemplate transactionTemplate) {
         this.orderRepository = orderRepository;
         this.userRepository = userRepository;
+        this.outboxWriter = outboxWriter;
+        this.transactionTemplate = transactionTemplate;
     }
 
     // Idempotent order creation.
-    // Deliberately NOT @Transactional: each repository call runs in its own transaction,
+    // The method itself is NOT @Transactional: only the insert step runs in a transaction,
     // so after a failed INSERT (unique violation) we can still read the winning row.
     public PlaceOrderResult place(String idempotencyKey, PlaceOrderRequest request) {
         String key = validateKey(idempotencyKey);
@@ -48,13 +56,21 @@ public class OrderService {
             return replay(existing.get(), hash);
         }
 
-        // 2. New key: insert. The unique constraint (user_id, idempotency_key) decides any race.
+        // 2. New key: order + OrderCreated outbox event in ONE transaction.
+        //    The unique constraint (user_id, idempotency_key) decides any race.
         Order order = new Order(request.userId(), normalizeSymbol(request.symbol()), request.side(),
                 request.quantity(), request.price(), key, hash);
         try {
-            return new PlaceOrderResult(OrderResponse.from(orderRepository.saveAndFlush(order)), true);
+            Order saved = transactionTemplate.execute(status -> {
+                Order inserted = orderRepository.saveAndFlush(order);
+                outboxWriter.append(Topics.ORDERS_CREATED, "OrderCreated", String.valueOf(inserted.getId()),
+                        inserted.getUserId(), OrderCreatedPayload.from(inserted));
+                return inserted;
+            });
+            return new PlaceOrderResult(OrderResponse.from(saved), true);
         } catch (DataIntegrityViolationException e) {
-            // 3. Lost the race: a concurrent request with the same key committed first
+            // 3. Lost the race: a concurrent request with the same key committed first.
+            //    Our transaction rolled back, so no duplicate event was stored either.
             Order winner = orderRepository.findByUserIdAndIdempotencyKey(request.userId(), key)
                     .orElseThrow(() -> e);
             return replay(winner, hash);

@@ -3,7 +3,9 @@ package com.sunil.finintel.order;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -13,20 +15,24 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.sunil.finintel.common.BadRequestException;
 import com.sunil.finintel.common.ConflictException;
 import com.sunil.finintel.common.NotFoundException;
 import com.sunil.finintel.common.UnprocessableException;
+import com.sunil.finintel.messaging.OutboxWriter;
+import com.sunil.finintel.messaging.Topics;
 import com.sunil.finintel.user.UserRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,18 +44,27 @@ class OrderServiceTest {
     @Mock
     private UserRepository userRepository;
 
-    @InjectMocks
+    @Mock
+    private OutboxWriter outboxWriter;
+
     private OrderService orderService;
 
     private final PlaceOrderRequest request =
             new PlaceOrderRequest(1L, "acme", OrderSide.BUY, 10, new BigDecimal("101.50"));
+
+    @BeforeEach
+    void setUp() {
+        // Real TransactionTemplate over a mock manager: runs the callback, no real DB transaction
+        TransactionTemplate tx = new TransactionTemplate(mock(PlatformTransactionManager.class));
+        orderService = new OrderService(orderRepository, userRepository, outboxWriter, tx);
+    }
 
     private Order storedOrder(PlaceOrderRequest r) {
         return new Order(1L, "ACME", OrderSide.BUY, 10, new BigDecimal("101.50"), "k1", OrderService.requestHash(r));
     }
 
     @Test
-    void newKeyCreatesOrder() {
+    void newKeyCreatesOrderAndOutboxEvent() {
         when(userRepository.existsById(1L)).thenReturn(true);
         when(orderRepository.findByUserIdAndIdempotencyKey(1L, "k1")).thenReturn(Optional.empty());
         when(orderRepository.saveAndFlush(any(Order.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -59,10 +74,12 @@ class OrderServiceTest {
         assertThat(result.created()).isTrue();
         assertThat(result.order().symbol()).isEqualTo("ACME");
         assertThat(result.order().status()).isEqualTo(OrderStatus.CREATED);
+        verify(outboxWriter).append(eq(Topics.ORDERS_CREATED), eq("OrderCreated"), anyString(), eq(1L),
+                any(OrderCreatedPayload.class));
     }
 
     @Test
-    void sameKeySameBodyReplaysExistingOrder() {
+    void sameKeySameBodyReplaysWithoutNewEvent() {
         when(userRepository.existsById(1L)).thenReturn(true);
         when(orderRepository.findByUserIdAndIdempotencyKey(1L, "k1")).thenReturn(Optional.of(storedOrder(request)));
 
@@ -70,6 +87,7 @@ class OrderServiceTest {
 
         assertThat(result.created()).isFalse();
         verify(orderRepository, never()).saveAndFlush(any());
+        verifyNoInteractions(outboxWriter);
     }
 
     @Test
@@ -96,13 +114,14 @@ class OrderServiceTest {
         PlaceOrderResult result = orderService.place("k1", request);
 
         assertThat(result.created()).isFalse();
+        verifyNoInteractions(outboxWriter);
     }
 
     @Test
     void blankKeyIsRejectedBeforeAnyDbCall() {
         assertThatThrownBy(() -> orderService.place("   ", request))
                 .isInstanceOf(BadRequestException.class);
-        verifyNoInteractions(orderRepository, userRepository);
+        verifyNoInteractions(orderRepository, userRepository, outboxWriter);
     }
 
     @Test

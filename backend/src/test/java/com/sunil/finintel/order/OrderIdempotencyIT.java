@@ -24,6 +24,7 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import org.testcontainers.utility.DockerImageName;
 
 import com.sunil.finintel.common.UnprocessableException;
+import com.sunil.finintel.messaging.OutboxRepository;
 import com.sunil.finintel.user.User;
 import com.sunil.finintel.user.UserRepository;
 
@@ -46,6 +47,9 @@ class OrderIdempotencyIT {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private OutboxRepository outboxRepository;
+
     private Long userId;
 
     @BeforeEach
@@ -55,12 +59,13 @@ class OrderIdempotencyIT {
 
     @AfterEach
     void cleanUp() {
+        outboxRepository.deleteAll();
         orderRepository.deleteAll();
         userRepository.deleteAll();
     }
 
     @Test
-    void concurrentRequestsWithSameKeyCreateExactlyOneOrder() throws Exception {
+    void concurrentRequestsWithSameKeyCreateExactlyOneOrderAndOneEvent() throws Exception {
         PlaceOrderRequest request = new PlaceOrderRequest(userId, "ACME", OrderSide.BUY, 10, new BigDecimal("101.50"));
         int threads = 8;
         ExecutorService pool = Executors.newFixedThreadPool(threads);
@@ -85,6 +90,10 @@ class OrderIdempotencyIT {
         assertThat(results).allMatch(r -> r.order().id().equals(firstId));
         assertThat(results).filteredOn(PlaceOrderResult::created).hasSize(1);
         assertThat(orderRepository.count()).isEqualTo(1);
+        // Losers rolled back their whole transaction, so no duplicate OrderCreated event exists
+        assertThat(outboxRepository.countByEventTypeAndAggregateId("OrderCreated", firstId.toString()))
+                .isEqualTo(1);
+        assertThat(outboxRepository.count()).isEqualTo(1);
     }
 
     @Test
