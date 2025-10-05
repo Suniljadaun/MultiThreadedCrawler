@@ -13,3 +13,5 @@
 | A-009 | Idempotency keys are scoped per user and kept forever | simple and safe for a learning project; no expiry job yet | Accepted |
 | A-010 | Order list page size is clamped to 1-100 instead of rejected | friendlier for clients, protects the DB | Accepted |
 | A-011 | Cancelling an already-cancelled order returns 200 | cancel is safe to retry | Accepted |
+| A-012 | SELL orders are not checked against positions yet | positions arrive in Phase 4 | Open |
+| A-013 | One outbox relay instance; per-user order is only guaranteed with a single relay | SKIP LOCKED allows more, but could reorder a user's events | Accepted |

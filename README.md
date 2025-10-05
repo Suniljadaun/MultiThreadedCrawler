@@ -18,7 +18,7 @@ This repository began as a small multithreaded web-crawler experiment (see the e
 | 0 | Architecture & specification | DONE |
 | 1 | Spring Boot core + PostgreSQL | DONE |
 | 2 | Transactions & idempotency | DONE |
-| 3 | Kafka events | NOT STARTED |
+| 3 | Kafka events | IN PROGRESS (outbox + validation consumer) |
 | 4 | Portfolio | NOT STARTED |
 | 5 | Redis caching | NOT STARTED |
 | 6 | AI / RAG service | NOT STARTED |
@@ -31,7 +31,7 @@ This repository began as a small multithreaded web-crawler experiment (see the e
 Requires JDK 21, Maven and Docker Desktop.
 
 ```bash
-docker compose up -d          # start PostgreSQL
+docker compose up -d          # start PostgreSQL + Kafka
 cd backend
 mvn test                      # unit + web tests
 mvn verify                    # + integration tests on real PostgreSQL (needs Docker)
