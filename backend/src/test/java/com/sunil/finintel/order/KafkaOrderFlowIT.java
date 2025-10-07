@@ -22,6 +22,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.test.annotation.DirtiesContext;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.kafka.KafkaContainer;
@@ -31,11 +32,14 @@ import org.testcontainers.utility.DockerImageName;
 import com.sunil.finintel.messaging.OutboxEvent;
 import com.sunil.finintel.messaging.OutboxRepository;
 import com.sunil.finintel.messaging.Topics;
+import com.sunil.finintel.portfolio.PortfolioResponse;
+import com.sunil.finintel.portfolio.PortfolioService;
 import com.sunil.finintel.user.User;
 import com.sunil.finintel.user.UserRepository;
 
 // Full flow on real PostgreSQL + Kafka:
-// POST order -> outbox -> relay -> orders.created -> validation consumer -> VALIDATED / REJECTED
+// POST order -> outbox -> orders.created -> validation -> orders.validated -> execution + position
+// Seeded market price for ACME is 100.0000 (V4 migration).
 @SpringBootTest(properties = {
         "app.outbox.publisher.enabled=true",
         "app.outbox.publisher.interval-ms=200",
@@ -43,6 +47,9 @@ import com.sunil.finintel.user.UserRepository;
         "spring.kafka.admin.auto-create=true"
 })
 @Testcontainers
+// Close this Spring context after the class: otherwise the cached context keeps its scheduler,
+// Kafka producer and consumers running against containers that are already stopped
+@DirtiesContext
 class KafkaOrderFlowIT {
 
     private static final Duration TIMEOUT = Duration.ofSeconds(30);
@@ -69,6 +76,9 @@ class KafkaOrderFlowIT {
     private OutboxRepository outboxRepository;
 
     @Autowired
+    private PortfolioService portfolioService;
+
+    @Autowired
     private KafkaTemplate<String, String> kafkaTemplate;
 
     @Autowired
@@ -83,15 +93,18 @@ class KafkaOrderFlowIT {
 
     @AfterEach
     void cleanUp() {
-        outboxRepository.deleteAll();
+        // Children before parents (foreign keys)
+        jdbcClient.sql("DELETE FROM executions").update();
+        jdbcClient.sql("DELETE FROM positions").update();
+        jdbcClient.sql("DELETE FROM outbox_events").update();
         jdbcClient.sql("DELETE FROM processed_events").update();
-        orderRepository.deleteAll();
-        userRepository.deleteAll();
+        jdbcClient.sql("DELETE FROM orders").update();
+        jdbcClient.sql("DELETE FROM users").update();
     }
 
-    private Long placeOrder(String key, String symbol) {
-        return orderService.place(key, new PlaceOrderRequest(userId, symbol, OrderSide.BUY, 10,
-                new BigDecimal("101.50"))).order().id();
+    private Long placeOrder(String key, String symbol, OrderSide side, long qty, String limit) {
+        return orderService.place(key, new PlaceOrderRequest(userId, symbol, side, qty, new BigDecimal(limit)))
+                .order().id();
     }
 
     private void awaitStatus(Long orderId, OrderStatus expected) throws InterruptedException {
@@ -107,30 +120,67 @@ class KafkaOrderFlowIT {
         fail("order " + orderId + " expected " + expected + " but was " + current);
     }
 
-    @Test
-    void supportedOrderIsValidatedThroughKafka() throws Exception {
-        Long orderId = placeOrder("k1", "ACME");
-
-        awaitStatus(orderId, OrderStatus.VALIDATED);
-
-        OutboxEvent created = outboxRepository.findByEventTypeAndAggregateId("OrderCreated", orderId.toString())
-                .orElseThrow();
-        assertThat(created.getPublishedAt()).isNotNull();
-        assertThat(outboxRepository.countByEventTypeAndAggregateId("OrderValidated", orderId.toString()))
-                .isEqualTo(1);
+    private long heldQuantity(String symbol) {
+        PortfolioResponse portfolio = portfolioService.getPortfolio(userId);
+        return portfolio.positions().stream()
+                .filter(p -> p.symbol().equals(symbol))
+                .mapToLong(p -> p.quantity())
+                .sum();
     }
 
     @Test
-    void unsupportedSymbolIsRejectedThroughKafka() throws Exception {
-        Long orderId = placeOrder("k1", "ZZZ");
+    void buyIsValidatedExecutedAndOpensPosition() throws Exception {
+        Long orderId = placeOrder("k1", "ACME", OrderSide.BUY, 10, "101.50");
+
+        awaitStatus(orderId, OrderStatus.EXECUTED);
+
+        assertThat(heldQuantity("ACME")).isEqualTo(10);
+        assertThat(portfolioService.getPortfolio(userId).positions().get(0).avgCost()).isEqualByComparingTo("100");
+        assertThat(outboxRepository.countByEventTypeAndAggregateId("OrderValidated", orderId.toString())).isEqualTo(1);
+        assertThat(outboxRepository.countByEventTypeAndAggregateId("OrderExecuted", orderId.toString())).isEqualTo(1);
+        OutboxEvent created = outboxRepository.findByEventTypeAndAggregateId("OrderCreated", orderId.toString())
+                .orElseThrow();
+        assertThat(created.getPublishedAt()).isNotNull();
+    }
+
+    @Test
+    void unsupportedSymbolIsRejectedAtValidation() throws Exception {
+        Long orderId = placeOrder("k1", "ZZZ", OrderSide.BUY, 10, "101.50");
+
+        awaitStatus(orderId, OrderStatus.REJECTED);
+        assertThat(outboxRepository.countByEventTypeAndAggregateId("OrderValidated", orderId.toString())).isZero();
+    }
+
+    @Test
+    void buyBelowMarketIsRejectedAtExecution() throws Exception {
+        Long orderId = placeOrder("k1", "ACME", OrderSide.BUY, 10, "99");
+
+        awaitStatus(orderId, OrderStatus.REJECTED);
+        assertThat(heldQuantity("ACME")).isZero();
+    }
+
+    @Test
+    void sellWithoutSharesIsRejected() throws Exception {
+        Long orderId = placeOrder("k1", "ACME", OrderSide.SELL, 5, "90");
 
         awaitStatus(orderId, OrderStatus.REJECTED);
     }
 
     @Test
+    void sellAfterBuyReducesPosition() throws Exception {
+        Long buy = placeOrder("k1", "ACME", OrderSide.BUY, 10, "101.50");
+        awaitStatus(buy, OrderStatus.EXECUTED);
+
+        Long sell = placeOrder("k2", "ACME", OrderSide.SELL, 4, "95");
+        awaitStatus(sell, OrderStatus.EXECUTED);
+
+        assertThat(heldQuantity("ACME")).isEqualTo(6);
+    }
+
+    @Test
     void duplicateEventIsProcessedOnlyOnce() throws Exception {
-        Long first = placeOrder("k1", "ACME");
-        awaitStatus(first, OrderStatus.VALIDATED);
+        Long first = placeOrder("k1", "ACME", OrderSide.BUY, 10, "101.50");
+        awaitStatus(first, OrderStatus.EXECUTED);
 
         // Deliver the same OrderCreated event a second time (what a relay crash or a retry would do)
         OutboxEvent created = outboxRepository.findByEventTypeAndAggregateId("OrderCreated", first.toString())
@@ -139,8 +189,8 @@ class KafkaOrderFlowIT {
                 .get(10, TimeUnit.SECONDS);
 
         // Same user = same key = same partition, so this order is consumed after the duplicate
-        Long second = placeOrder("k2", "ACME");
-        awaitStatus(second, OrderStatus.VALIDATED);
+        Long second = placeOrder("k2", "ACME", OrderSide.BUY, 1, "101.50");
+        awaitStatus(second, OrderStatus.EXECUTED);
 
         assertThat(outboxRepository.countByEventTypeAndAggregateId("OrderValidated", first.toString()))
                 .isEqualTo(1);
@@ -149,6 +199,8 @@ class KafkaOrderFlowIT {
                 .query(Long.class)
                 .single();
         assertThat(processed).isEqualTo(1L);
+        // 10 + 1, not 21: the duplicate did not buy again
+        assertThat(heldQuantity("ACME")).isEqualTo(11);
     }
 
     @Test

@@ -37,6 +37,21 @@ public class KafkaConfig {
         return TopicBuilder.name(Topics.ORDERS_REJECTED).partitions(PARTITIONS).replicas(1).build();
     }
 
+    @Bean
+    NewTopic ordersValidatedDltTopic() {
+        return TopicBuilder.name(Topics.ORDERS_VALIDATED_DLT).partitions(PARTITIONS).replicas(1).build();
+    }
+
+    @Bean
+    NewTopic ordersExecutedTopic() {
+        return TopicBuilder.name(Topics.ORDERS_EXECUTED).partitions(PARTITIONS).replicas(1).build();
+    }
+
+    @Bean
+    NewTopic portfolioUpdatedTopic() {
+        return TopicBuilder.name(Topics.PORTFOLIO_UPDATED).partitions(PARTITIONS).replicas(1).build();
+    }
+
     // Failed record: retried 2 more times, 1 second apart (3 attempts total), then sent to "<topic>.DLT".
     // Malformed messages can never succeed, so they skip the retries.
     @Bean
