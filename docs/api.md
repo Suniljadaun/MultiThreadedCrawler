@@ -14,8 +14,10 @@ Base path: `/api/v1`. JSON in and out.
 | GET | /orders/{id} | done | get order |
 | POST | /orders/{id}/cancel | done | cancel a CREATED or VALIDATED order |
 | GET | /users/{id}/orders | done | list user's orders, newest first |
-| GET | /portfolio/{userId} | planned | positions + total value |
-| GET | /users/{id}/transactions | planned | trade history |
+| GET | /portfolio/{userId} | done | positions valued at market price |
+| GET | /users/{id}/transactions | done | executed trades, newest first (paginated) |
+| GET | /market-prices | done | synthetic prices |
+| PUT | /market-prices/{symbol} | done | change a synthetic price (simulation helper) |
 | POST | /research/ask | planned | ask the research assistant |
 
 ## Place order
@@ -51,9 +53,34 @@ The key is scoped per user. "Same body" compares userId, symbol (case-insensitiv
 - `404`: order does not exist
 - `409`: order is `EXECUTED` or `REJECTED`, or was changed at the same moment by another request (retry)
 
+## Order lifecycle
+
+`CREATED` -> (validation) `VALIDATED` or `REJECTED` -> (execution) `EXECUTED` or `REJECTED`.
+Execution uses the synthetic market price. `price` in the request is a limit:
+BUY fills only if market <= price, SELL only if market >= price and the user holds enough shares.
+
+## Portfolio
+
+`GET /api/v1/portfolio/1`
+
+```json
+{
+  "userId": 1,
+  "positions": [
+    { "symbol": "ACME", "quantity": 10, "avgCost": 100.0000, "marketPrice": 112.5000,
+      "marketValue": 1125.0000, "unrealizedPnl": 125.0000 }
+  ],
+  "totalCost": 1000.0000,
+  "totalMarketValue": 1125.0000,
+  "totalUnrealizedPnl": 125.0000
+}
+```
+
+Only positions with quantity > 0 are listed.
+
 ## Pagination
 
-`GET /api/v1/users/{id}/orders?page=0&size=20`
+`GET /api/v1/users/{id}/orders?page=0&size=20` (same for `/transactions`)
 
 ```json
 { "items": [ ... ], "page": 0, "size": 20, "totalElements": 42, "totalPages": 3 }

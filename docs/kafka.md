@@ -10,7 +10,9 @@ sequenceDiagram
     OutboxRelay->>Kafka: orders.created
     OutboxRelay->>PostgreSQL: mark published
     Kafka->>OrderCreatedListener: OrderCreated
-    OrderCreatedListener->>PostgreSQL: processed_events + status change + outbox row (one transaction)
+    OrderCreatedListener->>PostgreSQL: processed_events + VALIDATED/REJECTED + outbox row (one transaction)
+    Kafka->>OrderValidatedListener: OrderValidated
+    OrderValidatedListener->>PostgreSQL: lock position, execution, EXECUTED/REJECTED, outbox rows (one transaction, ADR-006)
 ```
 
 ## Why an outbox
@@ -45,15 +47,20 @@ No exactly-once claim is made.
 | OrderCreated | orderId, userId, symbol, side, quantity, requestedPrice |
 | OrderValidated | orderId, status, reason (null) |
 | OrderRejected | orderId, status, reason |
+| OrderExecuted | orderId, executionId, userId, symbol, side, quantity, price, executedAt |
+| PositionUpdated | userId, symbol, quantity, avgCost |
 
 ## Topics
 
 | Topic | Producer | Consumer (group) | Key | Partitions |
 |---|---|---|---|---|
 | orders.created | OrderService via outbox | order-validation | userId | 3 |
-| orders.validated | order-validation via outbox | none yet (execution, Phase 4) | userId | 3 |
+| orders.validated | order-validation via outbox | order-execution | userId | 3 |
 | orders.rejected | order-validation via outbox | none yet | userId | 3 |
+| orders.executed | order-execution via outbox | none yet | userId | 3 |
+| portfolio.updated | order-execution via outbox | none yet (cache invalidation, Phase 5) | userId | 3 |
 | orders.created.DLT | error handler | none (manual inspection) | original | 3 |
+| orders.validated.DLT | error handler | none (manual inspection) | original | 3 |
 
 Key is `userId`, so all events of one user are on one partition and consumed in order.
 
@@ -65,7 +72,8 @@ Key is `userId`, so all events of one user are on one partition and consumed in 
 | Duplicate event | skipped via `processed_events` |
 | Handler error (e.g. DB down) | 3 attempts, 1 s apart, then `orders.created.DLT` |
 | Malformed JSON / missing envelope fields | no retry, straight to DLT |
-| Order cancelled before validation | event marked processed, order left CANCELLED |
+| Order cancelled before validation/execution | event marked processed, order left CANCELLED |
+| SELL without enough shares / limit not reached | order REJECTED with a reason in the OrderRejected event |
 
 ## Local run
 

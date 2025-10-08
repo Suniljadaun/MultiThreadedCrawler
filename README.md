@@ -18,8 +18,8 @@ This repository began as a small multithreaded web-crawler experiment (see the e
 | 0 | Architecture & specification | DONE |
 | 1 | Spring Boot core + PostgreSQL | DONE |
 | 2 | Transactions & idempotency | DONE |
-| 3 | Kafka events | IN PROGRESS (outbox + validation consumer) |
-| 4 | Portfolio | NOT STARTED |
+| 3 | Kafka events | DONE |
+| 4 | Portfolio | IN PROGRESS (execution, positions, portfolio API) |
 | 5 | Redis caching | NOT STARTED |
 | 6 | AI / RAG service | NOT STARTED |
 | 7 | Observability | NOT STARTED |

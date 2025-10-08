@@ -13,5 +13,7 @@
 | A-009 | Idempotency keys are scoped per user and kept forever | simple and safe for a learning project; no expiry job yet | Accepted |
 | A-010 | Order list page size is clamped to 1-100 instead of rejected | friendlier for clients, protects the DB | Accepted |
 | A-011 | Cancelling an already-cancelled order returns 200 | cancel is safe to retry | Accepted |
-| A-012 | SELL orders are not checked against positions yet | positions arrive in Phase 4 | Open |
+| A-012 | SELL holdings are checked at execution, with the position row locked | a validation-time check could race | Accepted |
 | A-013 | One outbox relay instance; per-user order is only guaranteed with a single relay | SKIP LOCKED allows more, but could reorder a user's events | Accepted |
+| A-014 | Orders fill completely at the synthetic market price; `price` is a limit | no order book or partial fills in this project | Accepted |
+| A-015 | Rejected orders keep their reason only in the OrderRejected event | avoids a schema change; can be added to orders later | Accepted |
