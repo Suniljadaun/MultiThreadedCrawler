@@ -28,5 +28,12 @@ services:
     ports:
       - "9092:9092"
 
+  redis:
+    # Cache only; losing its data is harmless (see docs/caching.md)
+    image: redis:7.4-alpine
+    container_name: finintel-redis
+    ports:
+      - "6379:6379"
+
 volumes:
   pgdata:

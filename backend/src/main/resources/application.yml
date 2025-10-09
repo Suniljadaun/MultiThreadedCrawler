@@ -29,10 +29,28 @@ spring:
     consumer:
       auto-offset-reset: earliest
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # Fail fast when Redis is down; the cache then falls back to the database
+      timeout: 500ms
+      connect-timeout: 500ms
+
 server:
   port: ${SERVER_PORT:8080}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
 app:
+  cache:
+    portfolio:
+      enabled: true
+      ttl: 60s
   orders:
     # Synthetic symbols only (see A-005)
     supported-symbols: ACME,GLOBEX,INITECH,UMBRELLA,STARK
