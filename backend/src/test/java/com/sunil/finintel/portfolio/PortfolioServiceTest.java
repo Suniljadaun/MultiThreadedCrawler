@@ -3,6 +3,9 @@ package com.sunil.finintel.portfolio;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
@@ -30,6 +33,9 @@ class PortfolioServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private PortfolioCache portfolioCache;
+
     @InjectMocks
     private PortfolioService portfolioService;
 
@@ -40,7 +46,7 @@ class PortfolioServiceTest {
     }
 
     @Test
-    void firstBuyOpensPosition() {
+    void firstBuyOpensPositionAndEvictsCache() {
         when(positionRepository.findForUpdate(1L, "ACME")).thenReturn(Optional.empty());
         when(positionRepository.save(any(Position.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -49,16 +55,18 @@ class PortfolioServiceTest {
         assertThat(result.applied()).isTrue();
         assertThat(result.position().getQuantity()).isEqualTo(10);
         assertThat(result.position().getAvgCost()).isEqualByComparingTo("100");
+        verify(portfolioCache).evictAfterCommit(1L);
     }
 
     @Test
-    void sellWithoutPositionIsNotApplied() {
+    void sellWithoutPositionIsNotAppliedAndKeepsCache() {
         when(positionRepository.findForUpdate(1L, "ACME")).thenReturn(Optional.empty());
 
         FillResult result = portfolioService.sell(1L, "ACME", 5);
 
         assertThat(result.applied()).isFalse();
         assertThat(result.heldQuantity()).isZero();
+        verify(portfolioCache, never()).evictAfterCommit(any());
     }
 
     @Test
@@ -74,7 +82,7 @@ class PortfolioServiceTest {
     }
 
     @Test
-    void sellWithinHoldingReducesPosition() {
+    void sellWithinHoldingReducesPositionAndEvictsCache() {
         Position p = holding(10, "100");
         when(positionRepository.findForUpdate(1L, "ACME")).thenReturn(Optional.of(p));
 
@@ -82,10 +90,12 @@ class PortfolioServiceTest {
 
         assertThat(result.applied()).isTrue();
         assertThat(p.getQuantity()).isEqualTo(6);
+        verify(portfolioCache).evictAfterCommit(1L);
     }
 
     @Test
-    void portfolioIsValuedAtMarketPrice() {
+    void cacheMissLoadsFromDatabaseAndFillsCache() {
+        when(portfolioCache.get(1L)).thenReturn(Optional.empty());
         when(userRepository.existsById(1L)).thenReturn(true);
         when(positionRepository.findByUserIdAndQuantityGreaterThanOrderBySymbolAsc(1L, 0))
                 .thenReturn(List.of(holding(10, "100")));
@@ -101,12 +111,24 @@ class PortfolioServiceTest {
         assertThat(portfolio.totalCost()).isEqualByComparingTo("1000");
         assertThat(portfolio.totalMarketValue()).isEqualByComparingTo("1125");
         assertThat(portfolio.totalUnrealizedPnl()).isEqualByComparingTo("125");
+        verify(portfolioCache).put(1L, portfolio);
     }
 
     @Test
-    void unknownUserHasNoPortfolio() {
+    void cacheHitSkipsDatabase() {
+        PortfolioResponse cached = new PortfolioResponse(1L, List.of(), BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
+        when(portfolioCache.get(1L)).thenReturn(Optional.of(cached));
+
+        assertThat(portfolioService.getPortfolio(1L)).isSameAs(cached);
+        verifyNoInteractions(userRepository, positionRepository, marketPriceRepository);
+    }
+
+    @Test
+    void unknownUserHasNoPortfolioAndIsNotCached() {
+        when(portfolioCache.get(9L)).thenReturn(Optional.empty());
         when(userRepository.existsById(9L)).thenReturn(false);
 
         assertThatThrownBy(() -> portfolioService.getPortfolio(9L)).isInstanceOf(NotFoundException.class);
+        verify(portfolioCache, never()).put(any(), any());
     }
 }

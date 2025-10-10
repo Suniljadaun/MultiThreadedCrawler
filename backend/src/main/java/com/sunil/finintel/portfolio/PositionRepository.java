@@ -18,4 +18,8 @@ public interface PositionRepository extends JpaRepository<Position, Long> {
     Optional<Position> findForUpdate(@Param("userId") Long userId, @Param("symbol") String symbol);
 
     List<Position> findByUserIdAndQuantityGreaterThanOrderBySymbolAsc(Long userId, long quantity);
+
+    // Users whose cached portfolio depends on this symbol's price
+    @Query("select distinct p.userId from Position p where p.symbol = :symbol and p.quantity > 0")
+    List<Long> findHolderIds(@Param("symbol") String symbol);
 }

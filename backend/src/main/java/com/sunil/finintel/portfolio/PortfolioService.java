@@ -6,7 +6,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -24,12 +23,14 @@ public class PortfolioService {
     private final PositionRepository positionRepository;
     private final MarketPriceRepository marketPriceRepository;
     private final UserRepository userRepository;
+    private final PortfolioCache portfolioCache;
 
     public PortfolioService(PositionRepository positionRepository, MarketPriceRepository marketPriceRepository,
-                            UserRepository userRepository) {
+                            UserRepository userRepository, PortfolioCache portfolioCache) {
         this.positionRepository = positionRepository;
         this.marketPriceRepository = marketPriceRepository;
         this.userRepository = userRepository;
+        this.portfolioCache = portfolioCache;
     }
 
     // Fills join the execution's transaction (MANDATORY), so order status and position change together
@@ -38,6 +39,7 @@ public class PortfolioService {
         Position position = positionRepository.findForUpdate(userId, symbol)
                 .orElseGet(() -> new Position(userId, symbol));
         position.buy(qty, price);
+        portfolioCache.evictAfterCommit(userId);
         return FillResult.applied(positionRepository.save(position));
     }
 
@@ -50,12 +52,24 @@ public class PortfolioService {
         }
         Position position = locked.get();
         position.sell(qty);
+        portfolioCache.evictAfterCommit(userId);
         return FillResult.applied(position);
     }
 
-    // Values open positions at the current synthetic market price
-    @Transactional(readOnly = true)
+    // Cache-aside: Redis first, database on a miss (or when Redis is down).
+    // Not @Transactional, so a cache hit does not take a DB connection.
     public PortfolioResponse getPortfolio(Long userId) {
+        Optional<PortfolioResponse> cached = portfolioCache.get(userId);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+        PortfolioResponse portfolio = loadPortfolio(userId);
+        portfolioCache.put(userId, portfolio);
+        return portfolio;
+    }
+
+    // Values open positions at the current synthetic market price
+    private PortfolioResponse loadPortfolio(Long userId) {
         if (!userRepository.existsById(userId)) {
             throw new NotFoundException("user " + userId + " not found");
         }

@@ -14,9 +14,14 @@ import com.sunil.finintel.common.NotFoundException;
 public class MarketPriceService {
 
     private final MarketPriceRepository marketPriceRepository;
+    private final PositionRepository positionRepository;
+    private final PortfolioCache portfolioCache;
 
-    public MarketPriceService(MarketPriceRepository marketPriceRepository) {
+    public MarketPriceService(MarketPriceRepository marketPriceRepository, PositionRepository positionRepository,
+                              PortfolioCache portfolioCache) {
         this.marketPriceRepository = marketPriceRepository;
+        this.positionRepository = positionRepository;
+        this.portfolioCache = portfolioCache;
     }
 
     @Transactional(readOnly = true)
@@ -30,6 +35,9 @@ public class MarketPriceService {
         MarketPrice marketPrice = marketPriceRepository.findById(symbol.toUpperCase(Locale.ROOT))
                 .orElseThrow(() -> new NotFoundException("symbol " + symbol + " not found"));
         marketPrice.changePrice(price);
-        return MarketPriceResponse.from(marketPriceRepository.saveAndFlush(marketPrice));
+        MarketPriceResponse updated = MarketPriceResponse.from(marketPriceRepository.saveAndFlush(marketPrice));
+        // Every cached portfolio holding this symbol is now valued at the old price
+        positionRepository.findHolderIds(marketPrice.getSymbol()).forEach(portfolioCache::evictAfterCommit);
+        return updated;
     }
 }
