@@ -19,8 +19,8 @@ This repository began as a small multithreaded web-crawler experiment (see the e
 | 1 | Spring Boot core + PostgreSQL | DONE |
 | 2 | Transactions & idempotency | DONE |
 | 3 | Kafka events | DONE |
-| 4 | Portfolio | IN PROGRESS (execution, positions, portfolio API) |
-| 5 | Redis caching | NOT STARTED |
+| 4 | Portfolio | DONE |
+| 5 | Redis caching | IN PROGRESS (portfolio cache-aside) |
 | 6 | AI / RAG service | NOT STARTED |
 | 7 | Observability | NOT STARTED |
 | 8 | Performance | NOT STARTED |
@@ -31,7 +31,7 @@ This repository began as a small multithreaded web-crawler experiment (see the e
 Requires JDK 21, Maven and Docker Desktop.
 
 ```bash
-docker compose up -d          # start PostgreSQL + Kafka
+docker compose up -d          # start PostgreSQL + Kafka + Redis
 cd backend
 mvn test                      # unit + web tests
 mvn verify                    # + integration tests on real PostgreSQL (needs Docker)
@@ -39,6 +39,7 @@ mvn spring-boot:run           # start API on http://localhost:8080
 ```
 
 PostgreSQL is exposed on host port 5433. Endpoints are listed in [docs/api.md](docs/api.md).
+Health and metrics: `/actuator/health`, `/actuator/metrics/portfolio.cache`.
 
 ## Planned tech stack
 

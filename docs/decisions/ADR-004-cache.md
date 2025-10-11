@@ -8,7 +8,8 @@ Status: Accepted
 ## Decision
 - Cache-aside with Redis.
 - Key: `portfolio:v1:{userId}`, value: portfolio JSON, TTL 60 seconds.
-- Delete the key when a `portfolio.updated` event is handled.
+- Delete the key after the transaction that changes a position or a price commits.
+  (Originally planned via the `portfolio.updated` event; in-process after-commit eviction is simpler and immediate. See docs/caching.md.)
 - If Redis is down, log it and read from PostgreSQL. The request still succeeds.
 
 ## Alternatives

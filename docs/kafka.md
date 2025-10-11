@@ -58,7 +58,7 @@ No exactly-once claim is made.
 | orders.validated | order-validation via outbox | order-execution | userId | 3 |
 | orders.rejected | order-validation via outbox | none yet | userId | 3 |
 | orders.executed | order-execution via outbox | none yet | userId | 3 |
-| portfolio.updated | order-execution via outbox | none yet (cache invalidation, Phase 5) | userId | 3 |
+| portfolio.updated | order-execution via outbox | none yet (cache is evicted in-process after commit, see caching.md) | userId | 3 |
 | orders.created.DLT | error handler | none (manual inspection) | original | 3 |
 | orders.validated.DLT | error handler | none (manual inspection) | original | 3 |
 
@@ -77,4 +77,4 @@ Key is `userId`, so all events of one user are on one partition and consumed in 
 
 ## Local run
 
-`docker compose up -d` starts PostgreSQL (5433) and Kafka (9092, KRaft, single broker).
+`docker compose up -d` starts PostgreSQL (5433), Kafka (9092, KRaft, single broker) and Redis (6379).

@@ -17,3 +17,4 @@
 | A-013 | One outbox relay instance; per-user order is only guaranteed with a single relay | SKIP LOCKED allows more, but could reorder a user's events | Accepted |
 | A-014 | Orders fill completely at the synthetic market price; `price` is a limit | no order book or partial fills in this project | Accepted |
 | A-015 | Rejected orders keep their reason only in the OrderRejected event | avoids a schema change; can be added to orders later | Accepted |
+| A-016 | A portfolio may be up to 60 s stale after a rare cache-aside race | read-only view; eviction after commit covers the normal case | Accepted |
