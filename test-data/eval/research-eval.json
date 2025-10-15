@@ -1,0 +1,125 @@
+{
+  "description": "Hand-written evaluation set for the research assistant. Built by reading the three synthetic documents in test-data/documents and labelling, for each question, the section(s) that contain the answer. See docs/ai-evaluation.md.",
+  "version": 1,
+  "examples": [
+    {
+      "id": "q01",
+      "question": "What were the major revenue drivers for ACME in 2025?",
+      "expect": "answer",
+      "relevant": [{"documentId": "acme-annual-report-2025", "section": "Revenue drivers"}],
+      "mustContain": ["Robotics"]
+    },
+    {
+      "id": "q02",
+      "question": "What was ACME's operating margin in 2025?",
+      "expect": "answer",
+      "relevant": [{"documentId": "acme-annual-report-2025", "section": "Financial highlights"}],
+      "mustContain": ["18.5%"]
+    },
+    {
+      "id": "q03",
+      "question": "How much did ACME spend on research and development?",
+      "expect": "answer",
+      "relevant": [{"documentId": "acme-annual-report-2025", "section": "Capital allocation"}],
+      "mustContain": ["380 million"]
+    },
+    {
+      "id": "q04",
+      "question": "What supplier risk does ACME describe?",
+      "expect": "answer",
+      "relevant": [{"documentId": "acme-annual-report-2025", "section": "Risk factors"}],
+      "mustContain": ["precision motors"]
+    },
+    {
+      "id": "q05",
+      "question": "What revenue growth does ACME expect in 2026?",
+      "expect": "answer",
+      "relevant": [{"documentId": "acme-annual-report-2025", "section": "Outlook for 2026"}],
+      "mustContain": ["8% to 10%"]
+    },
+    {
+      "id": "q06",
+      "question": "Why did Globex's operating margin decline?",
+      "expect": "answer",
+      "relevant": [{"documentId": "globex-q2-2026-update", "section": "Why margin declined"}],
+      "mustContain": ["fraud"]
+    },
+    {
+      "id": "q07",
+      "question": "How many active merchants did Globex have at the end of the quarter?",
+      "expect": "answer",
+      "relevant": [{"documentId": "globex-q2-2026-update", "section": "Merchant growth"}],
+      "mustContain": ["612,000"]
+    },
+    {
+      "id": "q08",
+      "question": "Does Globex have any outstanding bank loans?",
+      "expect": "answer",
+      "relevant": [{"documentId": "globex-q2-2026-update", "section": "Cash and liquidity"}],
+      "mustContain": ["no outstanding bank loans"]
+    },
+    {
+      "id": "q09",
+      "question": "What is Globex's full-year 2026 revenue growth guidance?",
+      "expect": "answer",
+      "relevant": [{"documentId": "globex-q2-2026-update", "section": "Guidance"}],
+      "mustContain": ["8% to 11%"]
+    },
+    {
+      "id": "q10",
+      "question": "What security incident did Initech have?",
+      "expect": "answer",
+      "relevant": [{"documentId": "initech-risk-disclosure-2026", "section": "Cybersecurity"}],
+      "mustContain": ["test environment"]
+    },
+    {
+      "id": "q11",
+      "question": "When does support for Initech's on-premise product end?",
+      "expect": "answer",
+      "relevant": [{"documentId": "initech-risk-disclosure-2026", "section": "Legacy product migration"}],
+      "mustContain": ["March 2027"]
+    },
+    {
+      "id": "q12",
+      "question": "How do rising interest rates affect Initech?",
+      "expect": "answer",
+      "relevant": [{"documentId": "initech-risk-disclosure-2026", "section": "Interest rates"}],
+      "mustContain": ["2 million"]
+    },
+    {
+      "id": "q13",
+      "question": "What was the operating margin of ACME's software segment?",
+      "expect": "answer",
+      "relevant": [{"documentId": "acme-annual-report-2025", "section": "Segment results > Software"}],
+      "mustContain": ["35%"]
+    },
+    {
+      "id": "u01",
+      "question": "What was Globex's revenue in 2019?",
+      "expect": "insufficient_evidence",
+      "relevant": [],
+      "mustContain": []
+    },
+    {
+      "id": "u02",
+      "question": "Who is the chief executive of Initech?",
+      "expect": "insufficient_evidence",
+      "relevant": [],
+      "mustContain": []
+    },
+    {
+      "id": "u03",
+      "question": "What is the weather forecast in Mumbai tomorrow?",
+      "expect": "insufficient_evidence",
+      "relevant": [],
+      "mustContain": []
+    },
+    {
+      "id": "a01",
+      "question": "Should I buy ACME shares now?",
+      "expect": "out_of_scope",
+      "relevant": [],
+      "mustContain": []
+    }
+  ]
+}
