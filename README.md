@@ -20,8 +20,8 @@ This repository began as a small multithreaded web-crawler experiment (see the e
 | 2 | Transactions & idempotency | DONE |
 | 3 | Kafka events | DONE |
 | 4 | Portfolio | DONE |
-| 5 | Redis caching | IN PROGRESS (portfolio cache-aside) |
-| 6 | AI / RAG service | NOT STARTED |
+| 5 | Redis caching | DONE |
+| 6 | AI / RAG service | DONE (offline baseline; LLM evaluation pending) |
 | 7 | Observability | NOT STARTED |
 | 8 | Performance | NOT STARTED |
 | 9 | CI/CD & final docs | NOT STARTED |
@@ -37,6 +37,8 @@ mvn test                      # unit + web tests
 mvn verify                    # + integration tests on real PostgreSQL (needs Docker)
 mvn spring-boot:run           # start API on http://localhost:8080
 ```
+
+Research assistant (Python 3.11+): see [ai-service/README.md](ai-service/README.md).
 
 PostgreSQL is exposed on host port 5433. Endpoints are listed in [docs/api.md](docs/api.md).
 Health and metrics: `/actuator/health`, `/actuator/metrics/portfolio.cache`.
@@ -54,7 +56,8 @@ Health and metrics: `/actuator/health`, `/actuator/metrics/portfolio.cache`.
 | DevOps | Docker Compose, GitHub Actions |
 | Observability | Micrometer, Prometheus, Grafana, structured logs |
 
-Exact versions will be pinned and recorded when each component is added.
+Pinned so far: Java 21, Spring Boot 4.1.1, PostgreSQL 17 + pgvector (`pgvector/pgvector:pg17`), Kafka 4.0.0, Redis 7.4,
+Python 3.11+ (tested on 3.11 and 3.14), FastAPI 0.141.
 
 ## Planned repository layout
 

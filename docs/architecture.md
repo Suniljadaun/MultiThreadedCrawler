@@ -4,7 +4,8 @@ Two deployable services plus infrastructure.
 
 ## Parts
 - **backend**: one Spring Boot app split into modules (user, order, portfolio, transaction, messaging). Owns all order and portfolio data.
-- **ai-service**: Python FastAPI app for the research assistant (RAG).
+- **ai-service**: Python FastAPI app for the research assistant (RAG). Stores chunks and embeddings in the
+  `research` schema of the same PostgreSQL (pgvector, ADR-005). Clients call it directly on port 8000 for now. See docs/rag.md.
 - **PostgreSQL**: main database.
 - **Kafka**: carries order and portfolio events between backend modules.
 - **Redis**: cache for portfolio reads.
@@ -18,9 +19,9 @@ flowchart LR
     Backend --> Kafka[(Kafka)]
     Kafka --> Backend
     Backend --> Redis[(Redis)]
-    Backend --> AI[FastAPI ai-service]
-    AI --> VectorDB[(Vector store)]
-    AI --> LLM[LLM provider]
+    Client --> AI[FastAPI ai-service]
+    AI --> Postgres
+    AI -.optional.-> LLM[LLM provider]
 ```
 
 ## Order flow (planned)

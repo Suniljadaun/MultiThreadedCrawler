@@ -18,7 +18,15 @@ Base path: `/api/v1`. JSON in and out.
 | GET | /users/{id}/transactions | done | executed trades, newest first (paginated) |
 | GET | /market-prices | done | synthetic prices |
 | PUT | /market-prices/{symbol} | done | change a synthetic price (simulation helper) |
-| POST | /research/ask | planned | ask the research assistant |
+
+Research assistant (ai-service, port 8000, same `/api/v1` base):
+
+| Method | Path | Status | Description |
+|---|---|---|---|
+| GET | /health | done | status, vector store, embedding model, LLM provider |
+| POST | /research/documents | done | ingest a markdown/text document (201 new or changed, 200 unchanged) |
+| GET | /research/documents | done | list stored documents |
+| POST | /research/query | done | ask a question, get an answer with sources |
 
 ## Place order
 
@@ -77,6 +85,35 @@ BUY fills only if market <= price, SELL only if market >= price and the user hol
 ```
 
 Only positions with quantity > 0 are listed.
+
+## Research query
+
+```http
+POST http://localhost:8000/api/v1/research/query
+Content-Type: application/json
+
+{ "question": "What were the major revenue drivers for ACME in 2025?", "topK": 5 }
+```
+
+```json
+{
+  "answerType": "extractive",
+  "answer": "The main revenue driver was the Robotics segment, ... [1]",
+  "sources": [
+    { "ref": 1, "documentId": "acme-annual-report-2025", "chunkId": "acme-annual-report-2025:2",
+      "title": "ACME Corp Annual Report 2025", "location": "section: Revenue drivers",
+      "score": 0.2139, "snippet": "<stored chunk text>" }
+  ],
+  "retrieval": { "topK": 5, "candidates": 5, "minScore": 0.15, "latencyMs": 1.2 },
+  "generation": { "provider": "extractive", "model": "none", "latencyMs": 0.1 },
+  "disclaimer": "Educational research tool over synthetic documents. Not investment advice."
+}
+```
+
+- `answerType`: `generated`, `extractive`, `insufficient_evidence` or `out_of_scope` (see docs/rag.md).
+- `question`: 3-1000 characters. `topK`: optional, 1-20.
+- `sources` lists only the chunks the answer cites. `retrieval` is null for `out_of_scope`.
+- Errors: 400 validation, 503 `LLM_UNAVAILABLE` / `EMBEDDING_UNAVAILABLE` / `DATABASE_UNAVAILABLE`.
 
 ## Pagination
 

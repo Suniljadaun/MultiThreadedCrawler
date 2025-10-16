@@ -8,6 +8,8 @@ The research assistant needs to store document chunk embeddings and search them 
 ## Decision
 - Use PostgreSQL with the pgvector extension.
 - The AI service uses its own schema (`research`) with `documents` and `document_chunks` tables.
+- The AI service creates that schema itself on startup; the backend's Flyway only manages `public`.
+- HNSW index with cosine distance. Table details are in docs/rag.md.
 
 ## Alternatives
 - Qdrant: built for vector search with more filtering and scaling features, but adds another service to run.
