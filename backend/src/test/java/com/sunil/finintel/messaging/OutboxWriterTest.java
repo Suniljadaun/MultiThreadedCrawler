@@ -11,6 +11,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.MDC;
+
+import com.sunil.finintel.common.RequestIds;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -43,5 +46,19 @@ class OutboxWriterTest {
         assertThat(envelope.userId()).isEqualTo(42L);
         assertThat(envelope.version()).isEqualTo(1);
         assertThat(envelope.payload().get("orderId").asInt()).isEqualTo(7);
+        assertThat(envelope.requestId()).isNull();
+    }
+
+    @Test
+    void copiesCurrentRequestIdIntoEnvelope() {
+        OutboxWriter writer = new OutboxWriter(outboxRepository, jsonMapper);
+
+        try (var ignored = MDC.putCloseable(RequestIds.MDC_KEY, "req-7")) {
+            writer.append("orders.created", "OrderCreated", "7", 42L, Map.of("orderId", 7));
+        }
+
+        ArgumentCaptor<OutboxEvent> saved = ArgumentCaptor.forClass(OutboxEvent.class);
+        verify(outboxRepository).save(saved.capture());
+        assertThat(new EventParser(jsonMapper).parse(saved.getValue().getPayload()).requestId()).isEqualTo("req-7");
     }
 }

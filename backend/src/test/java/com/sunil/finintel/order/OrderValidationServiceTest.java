@@ -42,7 +42,7 @@ class OrderValidationServiceTest {
 
     private final UUID eventId = UUID.randomUUID();
     private final EventEnvelope event =
-            new EventEnvelope(eventId, "OrderCreated", "1", 1L, Instant.now(), 1, null);
+            new EventEnvelope(eventId, "OrderCreated", "1", 1L, Instant.now(), 1, null, null);
 
     @BeforeEach
     void setUp() {

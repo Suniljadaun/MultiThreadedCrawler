@@ -55,7 +55,7 @@ class OrderExecutionServiceTest {
     private OrderExecutionService service;
 
     private final UUID eventId = UUID.randomUUID();
-    private final EventEnvelope event = new EventEnvelope(eventId, "OrderValidated", "1", 1L, Instant.now(), 1, null);
+    private final EventEnvelope event = new EventEnvelope(eventId, "OrderValidated", "1", 1L, Instant.now(), 1, null, null);
 
     private Order validatedOrder(OrderSide side, String limit) {
         Order order = new Order(1L, "ACME", side, 10, new BigDecimal(limit), "k", "h");

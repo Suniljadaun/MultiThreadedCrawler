@@ -87,9 +87,8 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ApiError> build(HttpStatus status, String error, String message, HttpServletRequest req) {
-        // Request id filter comes in Phase 7; until then use the header if the client sent one
-        String requestId = req.getHeader("X-Request-Id");
-        ApiError body = new ApiError(Instant.now(), status.value(), error, message, req.getRequestURI(), requestId);
+        ApiError body = new ApiError(Instant.now(), status.value(), error, message, req.getRequestURI(),
+                RequestIds.current());
         return ResponseEntity.status(status).body(body);
     }
 }

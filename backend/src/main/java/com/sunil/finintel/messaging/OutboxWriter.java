@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sunil.finintel.common.RequestIds;
+
 import tools.jackson.databind.json.JsonMapper;
 
 // Stores an event in the outbox. MANDATORY: it must join the caller's transaction,
@@ -28,7 +30,7 @@ public class OutboxWriter {
     public UUID append(String topic, String eventType, String aggregateId, Long userId, Object payload) {
         UUID eventId = UUID.randomUUID();
         EventEnvelope envelope = new EventEnvelope(eventId, eventType, aggregateId, userId, Instant.now(),
-                ENVELOPE_VERSION, jsonMapper.valueToTree(payload));
+                ENVELOPE_VERSION, jsonMapper.valueToTree(payload), RequestIds.current());
         // Key = userId, so all events of one user land on the same partition in order
         outboxRepository.save(new OutboxEvent(eventId, topic, String.valueOf(userId), eventType, aggregateId,
                 jsonMapper.writeValueAsString(envelope)));

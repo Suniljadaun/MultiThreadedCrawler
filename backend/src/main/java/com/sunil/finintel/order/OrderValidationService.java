@@ -64,6 +64,7 @@ public class OrderValidationService {
             order.moveTo(OrderStatus.VALIDATED);
             outboxWriter.append(Topics.ORDERS_VALIDATED, "OrderValidated", String.valueOf(orderId),
                     order.getUserId(), new OrderStatusChangedPayload(orderId, OrderStatus.VALIDATED, null));
+            log.info("Order {} validated", orderId);
         } else {
             order.moveTo(OrderStatus.REJECTED);
             outboxWriter.append(Topics.ORDERS_REJECTED, "OrderRejected", String.valueOf(orderId),

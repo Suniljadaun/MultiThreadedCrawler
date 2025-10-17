@@ -3,6 +3,8 @@ package com.sunil.finintel.order;
 import java.util.Locale;
 import java.util.Optional;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -23,6 +25,8 @@ import com.sunil.finintel.user.UserRepository;
 
 @Service
 public class OrderService {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     static final int MAX_KEY_LENGTH = 100;
     static final int MAX_PAGE_SIZE = 100;
@@ -67,6 +71,8 @@ public class OrderService {
                         inserted.getUserId(), OrderCreatedPayload.from(inserted));
                 return inserted;
             });
+            log.info("Order {} created: {} {} {} for user {}", saved.getId(), saved.getSide(), saved.getQuantity(),
+                    saved.getSymbol(), saved.getUserId());
             return new PlaceOrderResult(OrderResponse.from(saved), true);
         } catch (DataIntegrityViolationException e) {
             // 3. Lost the race: a concurrent request with the same key committed first.
