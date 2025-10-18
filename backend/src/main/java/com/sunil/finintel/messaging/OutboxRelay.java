@@ -12,6 +12,10 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+
 // Publishes outbox rows to Kafka.
 // Delivery is at-least-once: if the app crashes after the send but before the commit,
 // the event is sent again on the next run. Consumers deduplicate by eventId.
@@ -24,15 +28,25 @@ public class OutboxRelay {
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final int batchSize;
     private final long sendTimeoutMs;
+    private final Counter publishedCounter;
+    private final Counter failedCounter;
 
     public OutboxRelay(OutboxRepository outboxRepository,
                        KafkaTemplate<String, String> kafkaTemplate,
+                       MeterRegistry meterRegistry,
                        @Value("${app.outbox.publisher.batch-size:100}") int batchSize,
                        @Value("${app.outbox.publisher.send-timeout-ms:10000}") long sendTimeoutMs) {
         this.outboxRepository = outboxRepository;
         this.kafkaTemplate = kafkaTemplate;
         this.batchSize = batchSize;
         this.sendTimeoutMs = sendTimeoutMs;
+        this.publishedCounter = Counter.builder("outbox.publish").tag("result", "success")
+                .description("Outbox events sent to Kafka").register(meterRegistry);
+        this.failedCounter = Counter.builder("outbox.publish").tag("result", "failure")
+                .description("Outbox events sent to Kafka").register(meterRegistry);
+        // Growing backlog = Kafka down or relay stuck
+        Gauge.builder("outbox.pending", outboxRepository, OutboxRepository::countUnpublished)
+                .description("Outbox events not yet published").register(meterRegistry);
     }
 
     // Returns how many events were published
@@ -45,6 +59,7 @@ public class OutboxRelay {
                 kafkaTemplate.send(event.getTopic(), event.getMessageKey(), event.getPayload())
                         .get(sendTimeoutMs, TimeUnit.MILLISECONDS);
                 event.markPublished();
+                publishedCounter.increment();
                 published++;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -52,6 +67,7 @@ public class OutboxRelay {
                 break;
             } catch (ExecutionException | TimeoutException | RuntimeException e) {
                 event.markFailed(e.toString());
+                failedCounter.increment();
                 log.warn("Outbox publish failed for event {} ({}), will retry: {}",
                         event.getEventId(), event.getEventType(), e.toString());
                 // Stop here so later events are not published ahead of this one

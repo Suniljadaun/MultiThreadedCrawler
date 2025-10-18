@@ -15,6 +15,10 @@ public interface OutboxRepository extends JpaRepository<OutboxEvent, Long> {
             nativeQuery = true)
     List<OutboxEvent> lockUnpublished(@Param("limit") int limit);
 
+    // Backlog size for the outbox.pending gauge; uses the partial index on unpublished rows
+    @Query(value = "SELECT count(*) FROM outbox_events WHERE published_at IS NULL", nativeQuery = true)
+    long countUnpublished();
+
     Optional<OutboxEvent> findByEventTypeAndAggregateId(String eventType, String aggregateId);
 
     long countByEventTypeAndAggregateId(String eventType, String aggregateId);

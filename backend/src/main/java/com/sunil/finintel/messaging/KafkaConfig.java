@@ -11,6 +11,8 @@ import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.util.backoff.FixedBackOff;
 
+import io.micrometer.core.instrument.MeterRegistry;
+
 @Configuration
 @EnableScheduling
 public class KafkaConfig {
@@ -55,10 +57,14 @@ public class KafkaConfig {
     // Failed record: retried 2 more times, 1 second apart (3 attempts total), then sent to "<topic>.DLT".
     // Malformed messages can never succeed, so they skip the retries.
     @Bean
-    DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<?, ?> kafkaTemplate) {
+    DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<?, ?> kafkaTemplate, MeterRegistry meterRegistry) {
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaTemplate,
-                // partition -1: let Kafka choose the DLT partition
-                (record, ex) -> new TopicPartition(record.topic() + ".DLT", -1));
+                (record, ex) -> {
+                    // Counted here because this runs once per record that gives up
+                    meterRegistry.counter("kafka.dead.letter", "topic", record.topic()).increment();
+                    // partition -1: let Kafka choose the DLT partition
+                    return new TopicPartition(record.topic() + ".DLT", -1);
+                });
         DefaultErrorHandler handler = new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 2L));
         handler.addNotRetryableExceptions(MalformedEventException.class);
         return handler;

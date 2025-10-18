@@ -28,6 +28,11 @@ spring:
         delivery.timeout.ms: 10000
     consumer:
       auto-offset-reset: earliest
+    # Timers for every send and every handled record (tagged with the exception on failure)
+    template:
+      observation-enabled: true
+    listener:
+      observation-enabled: true
 
   data:
     redis:
@@ -40,11 +45,23 @@ spring:
 server:
   port: ${SERVER_PORT:8080}
 
+logging:
+  # Request id in every log line. For JSON logs set LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs
+  pattern:
+    correlation: "[%X{requestId:-}] "
+
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus
+  metrics:
+    distribution:
+      # Histogram buckets so Prometheus can compute p95/p99
+      percentiles-histogram:
+        http.server.requests: true
+        spring.data.repository.invocations: true
+        spring.kafka.listener: true
 
 app:
   cache:
