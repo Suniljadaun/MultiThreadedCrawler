@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     # Chunking
     chunk_max_chars: int = Field(default=800, ge=200)
 
+    # "json" = one JSON object per log line (for log collectors)
+    log_format: Literal["text", "json"] = "text"
+
     def postgres_dsn(self) -> str:
         return (
             f"host={self.postgres_host} port={self.postgres_port} dbname={self.postgres_db} "

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Request, Response, status
 
+from app.observability import INGESTED
 from app.schemas.research import DocumentSummary, IngestRequest, IngestResponse, QueryRequest, QueryResponse
 from app.services import Services
 
@@ -26,6 +27,7 @@ def ingest(body: IngestRequest, request: Request, response: Response) -> IngestR
     result = _services(request).ingestion.ingest(
         source=body.source, content=body.content, document_id=body.document_id, title=body.title
     )
+    INGESTED.labels("unchanged" if result.unchanged else "stored").inc()
     if result.unchanged:
         response.status_code = status.HTTP_200_OK  # same input as last time, nothing re-embedded
     return IngestResponse(document_id=result.document_id, title=result.title, chunks=result.chunks)

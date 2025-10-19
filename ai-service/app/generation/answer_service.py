@@ -1,11 +1,12 @@
 import logging
 import time
 
-from app.generation.base import LLMClient
+from app.generation.base import LLMClient, LLMError
 from app.generation.citations import check_answer
 from app.generation.extractive import extractive_answer
 from app.generation.prompt import INSUFFICIENT_MARKER, SYSTEM_PROMPT, build_user_prompt
 from app.generation.scope import is_personal_advice
+from app.observability import LLM_ERRORS, RAG_GENERATION, RAG_QUERIES, RAG_RETRIEVAL
 from app.retrieval.retriever import RetrievalResult, Retriever
 from app.retrieval.store import ScoredChunk
 from app.schemas.research import GenerationInfo, QueryResponse, RetrievalInfo, Source
@@ -26,6 +27,19 @@ class AnswerService:
         self._default_top_k = default_top_k
 
     def answer(self, question: str, top_k: int | None = None) -> QueryResponse:
+        response = self._answer(question, top_k)
+        RAG_QUERIES.labels(response.answer_type).inc()
+        if response.retrieval:
+            RAG_RETRIEVAL.observe(response.retrieval.latency_ms / 1000)
+        if response.generation:
+            RAG_GENERATION.labels(response.generation.provider).observe(response.generation.latency_ms / 1000)
+        log.info("RAG answer_type=%s sources=%s retrieval_ms=%s generation_ms=%s", response.answer_type,
+                 [s.chunk_id for s in response.sources],
+                 response.retrieval.latency_ms if response.retrieval else None,
+                 response.generation.latency_ms if response.generation else None)
+        return response
+
+    def _answer(self, question: str, top_k: int | None) -> QueryResponse:
         if is_personal_advice(question):
             return QueryResponse(answer_type="out_of_scope", answer=OUT_OF_SCOPE_TEXT, sources=[],
                                  retrieval=None, generation=None, disclaimer=DISCLAIMER)
@@ -46,7 +60,11 @@ class AnswerService:
             return self._response("extractive", text, cited, retrieval, info, generation)
 
         started = time.perf_counter()
-        raw = self._llm.complete(SYSTEM_PROMPT, build_user_prompt(question, retrieval.chunks))
+        try:
+            raw = self._llm.complete(SYSTEM_PROMPT, build_user_prompt(question, retrieval.chunks))
+        except LLMError:
+            LLM_ERRORS.labels(self._llm.provider).inc()
+            raise
         generation = GenerationInfo(provider=self._llm.provider, model=self._llm.model, latency_ms=_since(started))
 
         if INSUFFICIENT_MARKER in raw:
