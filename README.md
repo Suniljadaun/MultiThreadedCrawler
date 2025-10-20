@@ -22,7 +22,7 @@ This repository began as a small multithreaded web-crawler experiment (see the e
 | 4 | Portfolio | DONE |
 | 5 | Redis caching | DONE |
 | 6 | AI / RAG service | DONE (offline baseline; LLM evaluation pending) |
-| 7 | Observability | NOT STARTED |
+| 7 | Observability | IN PROGRESS (request ids, logs, metrics) |
 | 8 | Performance | NOT STARTED |
 | 9 | CI/CD & final docs | NOT STARTED |
 
@@ -41,7 +41,7 @@ mvn spring-boot:run           # start API on http://localhost:8080
 Research assistant (Python 3.11+): see [ai-service/README.md](ai-service/README.md).
 
 PostgreSQL is exposed on host port 5433. Endpoints are listed in [docs/api.md](docs/api.md).
-Health and metrics: `/actuator/health`, `/actuator/metrics/portfolio.cache`.
+Health and metrics: `/actuator/health`, `/actuator/prometheus` (backend), `/metrics` (ai-service). See [docs/observability.md](docs/observability.md).
 
 ## Planned tech stack
 

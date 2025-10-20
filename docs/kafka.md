@@ -38,9 +38,14 @@ No exactly-once claim is made.
   "userId": 1,
   "occurredAt": "2026-01-01T10:00:00Z",
   "version": 1,
-  "payload": { }
+  "payload": { },
+  "requestId": "3f1c9a2e-..."
 }
 ```
+
+`requestId` is the id of the HTTP request that started the chain (docs/observability.md).
+Consumers put it back into the log context, and every event they emit carries it again.
+It is optional: events without it still parse (added after version 1, backward compatible).
 
 | eventType | payload |
 |---|---|

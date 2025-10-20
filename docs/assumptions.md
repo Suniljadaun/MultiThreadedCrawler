@@ -22,3 +22,4 @@
 | A-018 | Document locations are section paths, never page numbers | markdown has no pages; plan forbids invented pages | Accepted |
 | A-019 | The AI service shares the backend's PostgreSQL but only touches the `research` schema | one less container to run (ADR-005) | Accepted |
 | A-020 | Offline defaults (hash embeddings, extractive answers) are a baseline, not the target quality | tests and demos must run with no API key | Accepted |
+| A-021 | A client-supplied X-Request-ID is reused if it matches `[A-Za-z0-9._-]{1,100}` | lets callers correlate; the pattern keeps log injection out | Accepted |

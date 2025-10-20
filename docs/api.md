@@ -2,6 +2,9 @@
 
 Base path: `/api/v1`. JSON in and out.
 
+Every response has an `X-Request-ID` header. Send your own (letters, digits, `.`, `_`, `-`, max 100) to
+correlate calls; otherwise one is generated. Error bodies repeat it as `requestId`.
+
 ## Endpoints
 
 | Method | Path | Status | Description |
