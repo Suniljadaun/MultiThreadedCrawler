@@ -24,7 +24,9 @@ Why not distributed tracing yet: see ADR-008.
 ## Follow one order
 
 ```powershell
-curl.exe -X POST http://localhost:8080/api/v1/orders -H "Content-Type: application/json" -H "Idempotency-Key: trace-demo-1" -H "X-Request-ID: trace-demo-1" -d "{\"userId\":1,\"symbol\":\"ACME\",\"side\":\"BUY\",\"quantity\":1,\"price\":200}"
+$body = '{"userId":1,"symbol":"ACME","side":"BUY","quantity":1,"price":200}'
+Invoke-RestMethod -Method Post -Uri http://localhost:8080/api/v1/orders -ContentType "application/json" `
+  -Headers @{ "Idempotency-Key" = "trace-demo-1"; "X-Request-ID" = "trace-demo-1" } -Body $body
 ```
 
 Every backend log line for this order then contains `[trace-demo-1]` (example, values will differ):
@@ -68,7 +70,32 @@ Label values are bounded: route templates (not raw paths), fixed result/answer t
 
 `outbox_pending` runs a `count(*)` on the partial index of unpublished rows at each scrape.
 
+## Dashboard
+
+`docker compose up -d` also starts Prometheus (http://localhost:9090) and Grafana (http://localhost:3000,
+anonymous view, admin/admin to edit). Both are configured from files, nothing is clicked by hand:
+
+| File | Purpose |
+|---|---|
+| `infra/prometheus/prometheus.yml` | scrapes `host.docker.internal:8080/actuator/prometheus` (job `backend`) and `:8000/metrics` (job `ai-service`) every 5 s |
+| `infra/grafana/provisioning/` | Prometheus data source and dashboard folder |
+| `infra/grafana/dashboards/finintel-overview.json` | the "FinIntel overview" dashboard |
+
+Panels:
+
+| Row | Panels |
+|---|---|
+| Backend HTTP | requests/s, 5xx ratio, p95 latency, outbox backlog, max consumer lag, cache hit ratio; requests by status; p95 by endpoint; slowest repository methods |
+| Kafka and outbox | publish rate and backlog; records handled per topic (with error tag); consumer lag and dead letters |
+| Research assistant | queries by answer type; retrieval and generation p95; HTTP by route and LLM errors |
+
+The apps run on the host, not in Compose, so Prometheus reaches them through `host.docker.internal`.
+If a target shows DOWN at http://localhost:9090/targets, that app is not running.
+
+`scripts/dev/generate-traffic.ps1` sends orders (some rejected), portfolio reads, one bad request and research
+questions, so every panel has data.
+
 ## Not done yet
 
-- Prometheus and Grafana containers with a dashboard (next step, after these metrics are checked by hand).
+- Alerting rules.
 - Distributed tracing (ADR-008).

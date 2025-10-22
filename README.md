@@ -22,7 +22,7 @@ This repository began as a small multithreaded web-crawler experiment (see the e
 | 4 | Portfolio | DONE |
 | 5 | Redis caching | DONE |
 | 6 | AI / RAG service | DONE (offline baseline; LLM evaluation pending) |
-| 7 | Observability | IN PROGRESS (request ids, logs, metrics) |
+| 7 | Observability | IN PROGRESS (request ids, logs, metrics, dashboard) |
 | 8 | Performance | NOT STARTED |
 | 9 | CI/CD & final docs | NOT STARTED |
 
@@ -31,7 +31,7 @@ This repository began as a small multithreaded web-crawler experiment (see the e
 Requires JDK 21, Maven and Docker Desktop.
 
 ```bash
-docker compose up -d          # start PostgreSQL + Kafka + Redis
+docker compose up -d          # PostgreSQL, Kafka, Redis, Prometheus :9090, Grafana :3000
 cd backend
 mvn test                      # unit + web tests
 mvn verify                    # + integration tests on real PostgreSQL (needs Docker)

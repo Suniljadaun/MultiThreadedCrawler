@@ -19,7 +19,8 @@ copy .env.example .env
 
 ```powershell
 python -m app.ingestion.cli ..\test-data\documents     # load the synthetic documents
-uvicorn app.main:app --port 8000                        # API on http://localhost:8000, docs at /docs
+uvicorn app.main:app --host 0.0.0.0 --port 8000        # API on http://localhost:8000, docs at /docs
+# --host 0.0.0.0 lets Prometheus (in Docker) reach it; use --port 8000 alone if you do not need metrics
 ```
 
 ## Test
