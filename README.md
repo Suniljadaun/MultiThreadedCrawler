@@ -22,8 +22,8 @@ This repository began as a small multithreaded web-crawler experiment (see the e
 | 4 | Portfolio | DONE |
 | 5 | Redis caching | DONE |
 | 6 | AI / RAG service | DONE (offline baseline; LLM evaluation pending) |
-| 7 | Observability | IN PROGRESS (request ids, logs, metrics, dashboard) |
-| 8 | Performance | NOT STARTED |
+| 7 | Observability | DONE |
+| 8 | Performance | IN PROGRESS (baseline measured, optimizations under test) |
 | 9 | CI/CD & final docs | NOT STARTED |
 
 ## Run locally

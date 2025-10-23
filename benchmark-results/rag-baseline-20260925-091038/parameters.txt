@@ -1,0 +1,1 @@
+﻿test=rag label=baseline vus=5 warmup=10s main=60s users=0

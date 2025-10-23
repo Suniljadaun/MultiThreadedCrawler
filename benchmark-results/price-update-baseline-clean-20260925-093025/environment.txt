@@ -1,0 +1,11 @@
+﻿Date:      2026-09-25T09:30:26.6708921+05:30
+OS:        Microsoft Windows 11 Home Single Language 10.0.26200
+CPU:       AMD Ryzen 5 5500U with Radeon Graphics (6 cores, 12 threads)
+RAM:       15.3 GB
+Java:      openjdk version "21.0.12.1" 2026-08-18 LTS
+Python:    Python 3.14.7
+k6:        k6.exe v2.2.0 (commit/00a9a1b7f5, go1.26.5, windows/amd64)
+Docker:    29.8.0
+Docker VM: 12 CPUs, 7967752192 bytes
+Postgres:  17.11 (Debian 17.11-1.pgdg12+2)
+Git:       af6040a (uncommitted files: 5)

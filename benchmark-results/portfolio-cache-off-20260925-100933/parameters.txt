@@ -1,0 +1,1 @@
+﻿test=portfolio label=cache-off vus=20 warmup=15s main=60s users=1000

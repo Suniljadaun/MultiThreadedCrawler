@@ -1,0 +1,1 @@
+﻿test=price-update label=baseline vus=1 warmup=5s main=60s users=0
