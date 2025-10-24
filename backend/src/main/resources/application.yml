@@ -76,4 +76,6 @@ app:
       enabled: true
       interval-ms: 500
       batch-size: 100
+      # Batches per run while there is a backlog
+      max-rounds: 20
       send-timeout-ms: 10000

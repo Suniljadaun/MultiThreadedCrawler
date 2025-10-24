@@ -65,12 +65,64 @@ class OutboxRelayTest {
         when(outboxRepository.lockUnpublished(100)).thenReturn(List.of(first, second));
         when(kafkaTemplate.send(eq("t1"), anyString(), anyString()))
                 .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("broker down")));
+        when(kafkaTemplate.send(eq("t2"), anyString(), anyString()))
+                .thenReturn(CompletableFuture.completedFuture((SendResult<String, String>) null));
+
+        assertThat(relay().publishBatch()).isZero();
+
+        // t2 may have reached Kafka, but stays unpublished so it is sent again after t1
+        assertThat(first.getAttempts()).isEqualTo(1);
+        assertThat(second.getPublishedAt()).isNull();
+        assertThat(second.getAttempts()).isZero();
+        assertThat(publishCount("failure")).isEqualTo(1);
+        assertThat(publishCount("success")).isZero();
+    }
+
+    @Test
+    void failureInTheMiddleKeepsEarlierEventsPublished() {
+        OutboxEvent first = event("t1");
+        OutboxEvent second = event("t2");
+        OutboxEvent third = event("t3");
+        when(outboxRepository.lockUnpublished(100)).thenReturn(List.of(first, second, third));
+        when(kafkaTemplate.send(eq("t1"), anyString(), anyString()))
+                .thenReturn(CompletableFuture.completedFuture((SendResult<String, String>) null));
+        when(kafkaTemplate.send(eq("t2"), anyString(), anyString()))
+                .thenReturn(CompletableFuture.failedFuture(new IllegalStateException("broker down")));
+        when(kafkaTemplate.send(eq("t3"), anyString(), anyString()))
+                .thenReturn(CompletableFuture.completedFuture((SendResult<String, String>) null));
+
+        assertThat(relay().publishBatch()).isEqualTo(1);
+
+        assertThat(first.getPublishedAt()).isNotNull();
+        assertThat(second.getAttempts()).isEqualTo(1);
+        assertThat(third.getPublishedAt()).isNull();
+    }
+
+    @Test
+    void sendThrowingStopsTheRestOfTheBatch() {
+        OutboxEvent first = event("t1");
+        OutboxEvent second = event("t2");
+        when(outboxRepository.lockUnpublished(100)).thenReturn(List.of(first, second));
+        when(kafkaTemplate.send(eq("t1"), anyString(), anyString()))
+                .thenThrow(new IllegalStateException("no metadata"));
 
         assertThat(relay().publishBatch()).isZero();
 
         assertThat(first.getAttempts()).isEqualTo(1);
-        assertThat(second.getAttempts()).isZero();
         verify(kafkaTemplate, never()).send(eq("t2"), anyString(), anyString());
+        assertThat(publishCount("failure")).isEqualTo(1);
+    }
+
+    @Test
+    void sendThatNeverCompletesTimesOut() {
+        OutboxEvent first = event("t1");
+        when(outboxRepository.lockUnpublished(100)).thenReturn(List.of(first));
+        when(kafkaTemplate.send(anyString(), anyString(), anyString())).thenReturn(new CompletableFuture<>());
+
+        OutboxRelay relay = new OutboxRelay(outboxRepository, kafkaTemplate, registry, 100, 50);
+
+        assertThat(relay.publishBatch()).isZero();
+        assertThat(first.getAttempts()).isEqualTo(1);
         assertThat(publishCount("failure")).isEqualTo(1);
     }
 

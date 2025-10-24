@@ -2,9 +2,11 @@ package com.sunil.finintel.portfolio;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -12,6 +14,7 @@ import static org.mockito.Mockito.when;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.List;
+import java.util.stream.LongStream;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -112,12 +115,40 @@ class PortfolioCacheTest {
     }
 
     @Test
+    void evictAllDeletesKeysInChunks() {
+        List<Long> ids = LongStream.rangeClosed(1, 2500).boxed().toList();
+
+        cache.evictAllAfterCommit(ids);
+
+        verify(redis, times(3)).delete(anyCollection());
+        // last chunk holds the remaining 500 keys
+        verify(redis).delete(LongStream.rangeClosed(2001, 2500).mapToObj(i -> "portfolio:v1:" + i).toList());
+    }
+
+    @Test
+    void evictAllFailureIsCountedPerChunk() {
+        when(redis.delete(anyCollection())).thenThrow(new RedisConnectionFailureException("down"));
+
+        cache.evictAll(LongStream.rangeClosed(1, 1500).boxed().toList());
+
+        assertThat(count("error")).isEqualTo(2.0);
+    }
+
+    @Test
+    void evictAllWithNoHoldersDoesNothing() {
+        cache.evictAllAfterCommit(List.of());
+
+        verifyNoInteractions(redis);
+    }
+
+    @Test
     void disabledCacheNeverTouchesRedis() {
         PortfolioCache disabled = new PortfolioCache(redis, jsonMapper, registry, false, Duration.ofSeconds(60));
 
         assertThat(disabled.get(1L)).isEmpty();
         disabled.put(1L, sample);
         disabled.evictAfterCommit(1L);
+        disabled.evictAllAfterCommit(List.of(1L, 2L));
 
         verifyNoInteractions(redis);
     }

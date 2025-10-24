@@ -1,6 +1,9 @@
 package com.sunil.finintel.portfolio;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.slf4j.Logger;
@@ -22,6 +25,8 @@ public class PortfolioCache {
 
     private static final Logger log = LoggerFactory.getLogger(PortfolioCache.class);
     private static final String KEY_PREFIX = "portfolio:v1:";
+    // Keys per DEL command
+    static final int EVICT_CHUNK = 1000;
 
     private final StringRedisTemplate redis;
     private final JsonMapper jsonMapper;
@@ -104,15 +109,45 @@ public class PortfolioCache {
         if (!enabled) {
             return;
         }
+        afterCommit(() -> evict(userId));
+    }
+
+    // One DEL per chunk instead of one round trip per user (price updates touch every holder)
+    public void evictAll(Collection<Long> userIds) {
+        if (!enabled || userIds.isEmpty()) {
+            return;
+        }
+        List<String> keys = userIds.stream().map(PortfolioCache::key).toList();
+        for (int from = 0; from < keys.size(); from += EVICT_CHUNK) {
+            List<String> chunk = new ArrayList<>(keys.subList(from, Math.min(from + EVICT_CHUNK, keys.size())));
+            try {
+                redis.delete(chunk);
+            } catch (RuntimeException e) {
+                // Entries expire by TTL, so staleness is bounded
+                errors.increment();
+                log.warn("Portfolio cache evict failed for {} users, entries expire in {}: {}",
+                        chunk.size(), ttl, e.toString());
+            }
+        }
+    }
+
+    public void evictAllAfterCommit(Collection<Long> userIds) {
+        if (!enabled || userIds.isEmpty()) {
+            return;
+        }
+        afterCommit(() -> evictAll(userIds));
+    }
+
+    private static void afterCommit(Runnable action) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    evict(userId);
+                    action.run();
                 }
             });
         } else {
-            evict(userId);
+            action.run();
         }
     }
 }

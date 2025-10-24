@@ -1,6 +1,8 @@
 package com.sunil.finintel.messaging;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -49,15 +51,31 @@ public class OutboxRelay {
                 .description("Outbox events not yet published").register(meterRegistry);
     }
 
-    // Returns how many events were published
+    public int batchSize() {
+        return batchSize;
+    }
+
+    // Sends the whole batch without waiting per event, then checks the results in order.
+    // Returns how many events were published.
     @Transactional
     public int publishBatch() {
         List<OutboxEvent> batch = outboxRepository.lockUnpublished(batchSize);
-        int published = 0;
+        List<CompletableFuture<?>> sends = new ArrayList<>(batch.size());
         for (OutboxEvent event : batch) {
             try {
-                kafkaTemplate.send(event.getTopic(), event.getMessageKey(), event.getPayload())
-                        .get(sendTimeoutMs, TimeUnit.MILLISECONDS);
+                sends.add(kafkaTemplate.send(event.getTopic(), event.getMessageKey(), event.getPayload()));
+            } catch (RuntimeException e) {
+                // e.g. no broker metadata; do not send the rest
+                sends.add(CompletableFuture.failedFuture(e));
+                break;
+            }
+        }
+        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(sendTimeoutMs);
+        int published = 0;
+        for (int i = 0; i < sends.size(); i++) {
+            OutboxEvent event = batch.get(i);
+            try {
+                sends.get(i).get(Math.max(0, deadline - System.nanoTime()), TimeUnit.NANOSECONDS);
                 event.markPublished();
                 publishedCounter.increment();
                 published++;
@@ -70,7 +88,8 @@ public class OutboxRelay {
                 failedCounter.increment();
                 log.warn("Outbox publish failed for event {} ({}), will retry: {}",
                         event.getEventId(), event.getEventType(), e.toString());
-                // Stop here so later events are not published ahead of this one
+                // Later events stay unpublished and are sent again next run, even if this
+                // attempt reached Kafka (at-least-once, consumers deduplicate)
                 break;
             }
         }

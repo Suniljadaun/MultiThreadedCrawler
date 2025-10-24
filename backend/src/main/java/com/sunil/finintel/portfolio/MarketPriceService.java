@@ -37,7 +37,7 @@ public class MarketPriceService {
         marketPrice.changePrice(price);
         MarketPriceResponse updated = MarketPriceResponse.from(marketPriceRepository.saveAndFlush(marketPrice));
         // Every cached portfolio holding this symbol is now valued at the old price
-        positionRepository.findHolderIds(marketPrice.getSymbol()).forEach(portfolioCache::evictAfterCommit);
+        portfolioCache.evictAllAfterCommit(positionRepository.findHolderIds(marketPrice.getSymbol()));
         return updated;
     }
 }
