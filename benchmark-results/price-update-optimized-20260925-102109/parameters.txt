@@ -1,0 +1,1 @@
+﻿test=price-update label=optimized vus=1 warmup=5s main=60s users=0

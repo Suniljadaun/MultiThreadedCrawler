@@ -1,0 +1,1 @@
+﻿test=orders label=optimized vus=20 warmup=0s main=60s users=20000
