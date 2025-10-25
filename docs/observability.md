@@ -90,7 +90,9 @@ Panels:
 | Research assistant | queries by answer type; retrieval and generation p95; HTTP by route and LLM errors |
 
 The apps run on the host, not in Compose, so Prometheus reaches them through `host.docker.internal`.
-If a target shows DOWN at http://localhost:9090/targets, that app is not running.
+If a target shows DOWN at http://localhost:9090/targets, that app is not running or only listens on 127.0.0.1.
+Start the ai-service with `uvicorn app.main:app --host 0.0.0.0 --port 8000` (Spring Boot already listens on all interfaces).
+Dashboard link: http://localhost:3000/d/finintel-overview
 
 `scripts/dev/generate-traffic.ps1` sends orders (some rejected), portfolio reads, one bad request and research
 questions, so every panel has data.
