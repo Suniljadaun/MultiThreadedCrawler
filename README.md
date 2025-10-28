@@ -23,25 +23,47 @@ This repository began as a small multithreaded web-crawler experiment (see the e
 | 5 | Redis caching | DONE |
 | 6 | AI / RAG service | DONE (offline baseline; LLM evaluation pending) |
 | 7 | Observability | DONE |
-| 8 | Performance | IN PROGRESS (baseline measured, optimizations under test) |
-| 9 | CI/CD & final docs | NOT STARTED |
+| 8 | Performance | DONE (baseline + one optimization round, see docs/performance.md) |
+| 9 | CI/CD & final docs | IN PROGRESS (CI + Docker images written, docs next) |
 
 ## Run locally
 
-Requires JDK 21, Maven and Docker Desktop.
+Requires Docker Desktop. For development also JDK 21, Maven and Python 3.11+.
+
+Whole system in Docker (builds the backend and ai-service images from source):
+
+```bash
+docker compose --profile app up -d --build
+docker compose exec ai-service python -m app.ingestion.cli /data/documents   # load the sample documents
+bash scripts/ci/smoke-test.sh                                                 # optional end-to-end check (curl + jq)
+```
+
+Development (infrastructure in Docker, apps on the host):
 
 ```bash
 docker compose up -d          # PostgreSQL, Kafka, Redis, Prometheus :9090, Grafana :3000
 cd backend
 mvn test                      # unit + web tests
-mvn verify                    # + integration tests on real PostgreSQL (needs Docker)
+mvn verify                    # + integration tests on real PostgreSQL/Kafka/Redis (needs Docker)
 mvn spring-boot:run           # start API on http://localhost:8080
 ```
 
-Research assistant (Python 3.11+): see [ai-service/README.md](ai-service/README.md).
+Research assistant on the host (Python 3.11+): see [ai-service/README.md](ai-service/README.md).
+Do not run the `app` profile and the host apps at the same time; both use ports 8080 and 8000.
 
 PostgreSQL is exposed on host port 5433. Endpoints are listed in [docs/api.md](docs/api.md).
 Health and metrics: `/actuator/health`, `/actuator/prometheus` (backend), `/metrics` (ai-service). See [docs/observability.md](docs/observability.md).
+
+## CI
+
+`.github/workflows/ci.yml` runs on every push and pull request:
+
+- backend: `mvn verify` (compile, unit tests, Testcontainers integration tests), jar uploaded as an artifact
+- ai-service on Python 3.11 and 3.14: `ruff check`, fast tests, integration tests
+- system: builds both Docker images, starts the whole stack and runs `scripts/ci/smoke-test.sh`
+  (user -> order -> Kafka -> execution -> portfolio, then RAG ingest + query)
+
+Images are built but not published, and nothing is deployed.
 
 ## Planned tech stack
 

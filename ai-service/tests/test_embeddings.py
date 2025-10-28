@@ -54,7 +54,9 @@ def test_openai_embedding_orders_by_index_and_normalises():
 
 
 def test_openai_embedding_rejects_wrong_dimension():
-    handler = lambda request: httpx.Response(200, json={"data": [{"index": 0, "embedding": [1, 2]}]})
+    def handler(request):
+        return httpx.Response(200, json={"data": [{"index": 0, "embedding": [1, 2]}]})
+
     with pytest.raises(EmbeddingError):
         _client(handler).embed(["a"])
 
