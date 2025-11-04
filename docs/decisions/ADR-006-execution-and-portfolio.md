@@ -23,5 +23,6 @@ checked safely, even when two sells for the same symbol arrive together.
 
 ## Consequences
 - Order, execution and position are always consistent with each other.
-- `portfolio.updated` is still published, so read models (e.g. a Redis cache in Phase 5) can react to it.
+- `portfolio.updated` is still published, so read models can react to it. (The Phase 5 cache ended up evicting
+  in-process after commit instead, see ADR-004.)
 - If the portfolio is ever split into its own service, this becomes a saga; the events already exist for that.

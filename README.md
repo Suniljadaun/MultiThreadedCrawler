@@ -24,7 +24,7 @@ This repository began as a small multithreaded web-crawler experiment (see the e
 | 6 | AI / RAG service | DONE (offline baseline; LLM evaluation pending) |
 | 7 | Observability | DONE |
 | 8 | Performance | DONE (baseline + one optimization round, see docs/performance.md) |
-| 9 | CI/CD & final docs | IN PROGRESS (CI + Docker images written, docs next) |
+| 9 | CI/CD & final docs | IN PROGRESS (CI green; required docs written; resume evidence and interview notes next) |
 
 ## Run locally
 
@@ -65,7 +65,23 @@ Health and metrics: `/actuator/health`, `/actuator/prometheus` (backend), `/metr
 
 Images are built but not published, and nothing is deployed.
 
-## Planned tech stack
+## Documentation
+
+| Topic | File |
+|---|---|
+| Requirements, assumptions | [requirements](docs/requirements.md), [assumptions](docs/assumptions.md) |
+| Architecture, decisions | [architecture](docs/architecture.md), [ADRs](docs/decisions/) |
+| API | [api](docs/api.md) |
+| Data | [database](docs/database.md), [kafka](docs/kafka.md), [caching](docs/caching.md) |
+| Correctness | [consistency](docs/consistency.md), [reliability](docs/reliability.md), [testing](docs/testing.md) |
+| Operations | [observability](docs/observability.md), [deployment](docs/deployment.md), [runbooks](docs/runbooks.md), [security](docs/security.md) |
+| Performance | [performance](docs/performance.md) (measured results only) |
+| Research assistant | [rag](docs/rag.md), [ai-evaluation](docs/ai-evaluation.md) |
+
+Diagrams (Mermaid): system - architecture; request sequence and Kafka event flow - kafka; order state machine -
+consistency; ER - database; cache flow - caching; RAG pipeline - rag; deployment - deployment; failure/retry - reliability.
+
+## Tech stack
 
 | Area | Technology |
 |---|---|
@@ -78,18 +94,20 @@ Images are built but not published, and nothing is deployed.
 | DevOps | Docker Compose, GitHub Actions |
 | Observability | Micrometer, Prometheus, Grafana, structured logs |
 
-Pinned so far: Java 21, Spring Boot 4.1.1, PostgreSQL 17 + pgvector (`pgvector/pgvector:pg17`), Kafka 4.0.0, Redis 7.4,
+Pinned versions: Java 21, Spring Boot 4.1.1, PostgreSQL 17 + pgvector (`pgvector/pgvector:pg17`), Kafka 4.0.0, Redis 7.4,
 Python 3.11+ (tested on 3.11 and 3.14), FastAPI 0.141.
 
-## Planned repository layout
+## Repository layout
 
 ```text
 backend/      Spring Boot backend
 ai-service/   FastAPI RAG service
 docs/         design docs and architecture decision records (ADRs)
-infra/        Docker, Prometheus and Grafana config
-scripts/      dev, seed and benchmark scripts
-test-data/    synthetic market data and sample documents
+infra/        Prometheus and Grafana config (Dockerfiles live in backend/ and ai-service/)
+scripts/      dev traffic, benchmark and CI smoke-test scripts
+test-data/    synthetic research documents and the RAG evaluation set
+benchmark-results/  raw output of every benchmark run (docs/performance.md)
+.github/      CI workflow
 ```
 
 ## Design principles

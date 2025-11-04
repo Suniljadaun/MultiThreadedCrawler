@@ -30,7 +30,7 @@ flowchart LR
 | Change | Evicts |
 |---|---|
 | Order execution changes a position (`PortfolioService.buy/sell`) | that user's key |
-| `PUT /market-prices/{symbol}` | keys of every user holding the symbol |
+| `PUT /market-prices/{symbol}` | keys of every user holding the symbol, deleted in batches of 1,000 keys per `DEL` |
 
 Eviction runs **after the DB transaction commits** (`TransactionSynchronization.afterCommit`).
 Evicting before commit lets a concurrent reader load the old rows and put them back into the cache.
@@ -58,4 +58,6 @@ Redis is never the source of truth. Every Redis error is caught, logged, counted
 ## Not done (on purpose)
 
 - No Caffeine in-process cache: with more than one app instance every instance would need its own invalidation.
-- No stampede protection: one portfolio query is cheap; revisit only if Phase 8 benchmarks show it matters.
+- No stampede protection: one portfolio query is cheap, and the Phase 8 benchmarks did not show a need for it.
+
+Measured effect of the cache and of batched eviction: docs/performance.md.

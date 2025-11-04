@@ -20,3 +20,7 @@ Status: Accepted
 - A read may be up to 60 seconds stale if an invalidation is missed.
 - Redis is never the source of truth.
 - Hit/miss counts are exposed as metrics.
+
+## Outcome (Phase 8)
+- Measured with 1,000 hot users: cache on 4,763.3 req/s (p50 3.73 ms) vs cache off 879.6 req/s (p50 21.6 ms).
+  Best case for a cache; details and limits in docs/performance.md.
